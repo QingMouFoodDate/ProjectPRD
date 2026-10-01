@@ -77,7 +77,7 @@ flowchart LR
 
 > 依赖关系：`I01` 是地基，`I02→I03→I04→I07→I08→T01→T02→T03→I10` 是最窄的那条线，先打通它。
 
-### QingMouInfer（平台 · 控制面）
+### TrainPlatform（平台 · 控制面）
 
 | # | 标题 | 交付物 | 验收 | 依赖 |
 | :--- | :--- | :--- | :--- | :--- |
@@ -106,7 +106,7 @@ flowchart LR
 | **T06** | 视频抽帧算子 | ffmpeg 抽帧 + 写入帧血缘（`group_key` / `frame_index` / `timestamp`） | 抽出的帧能追溯到源视频与时间戳；同视频的帧 `group_key` 一致 | T01 |
 | **T07** | AI 预标注脚本 | 用指定 `ModelVersion` 对未标注图批量推理，产出候选框 | 跑完后标注台能加载出候选框供人工修正 | T05, I04 |
 
-### QingMouCollection（端侧）
+### MobileClient（端侧）
 
 | # | 标题 | 交付物 | 验收 | 依赖 |
 | :--- | :--- | :--- | :--- | :--- |
