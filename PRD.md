@@ -1,10 +1,10 @@
-# FoodYolo 产品需求文档 (PRD)
+# 轻眸识刻 产品需求文档 (PRD)
 
 ## 1. 文档信息
 
 | 属性 | 内容 |
 | :--- | :--- |
-| **文档名称** | FoodYolo PRD |
+| **文档名称** | 轻眸识刻 PRD |
 | **版本号** | v0.2 (Module Index) |
 | **状态** | Draft |
 | **编写日期** | 2026-10-01 |
@@ -12,7 +12,7 @@
 
 ## 2. 产品综述 (Product Overview)
 
-FoodYolo 是一套 **Local-First 的视觉检测模型训练基建**，面向 2~3 人小团队，
+轻眸识刻 是一套 **Local-First 的视觉检测模型训练基建**，面向 2~3 人小团队，
 覆盖 `数据采集 → 数据导入 → 数据管理 → 标注 → 训练 → 流水线 → 部署推理` 的完整闭环。
 
 首个落地任务是**食品包装生产日期识别**：先做日期区域检测，再接入 OCR 读出日期字符串。
@@ -22,7 +22,7 @@ FoodYolo 是一套 **Local-First 的视觉检测模型训练基建**，面向 2~
 
 ```mermaid
 graph TB
-    subgraph FoodYolo ["FoodYolo (Single Node, Local-First)"]
+    subgraph 轻眸识刻 ["轻眸识刻 (Single Node, Local-First)"]
         direction TB
         COL["01 数据采集<br/>Collect"]
         ING["02 数据导入<br/>Ingest"]
@@ -51,10 +51,10 @@ graph TB
     DATA <--> Storage
     TRAIN <--> Storage
     DEPLOY <--> Storage
-    SYS -.->|鉴权 / 审计 / 告警| FoodYolo
+    SYS -.->|鉴权 / 审计 / 告警| 轻眸识刻
     MP -->|调用推理 API| DEPLOY
     RN -->|采集上传 / 端侧推理| COL & DEPLOY
-    WEB --> FoodYolo
+    WEB --> 轻眸识刻
 ```
 
 ### 2.2 训练执行分层 (Execution Layers)

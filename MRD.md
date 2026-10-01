@@ -1,4 +1,4 @@
-# FoodYolo 市场需求文档 (MRD)
+# 轻眸识刻 市场需求文档 (MRD)
 
 > **文档密级**: 内部
 > **版本**: v0.1
@@ -98,7 +98,7 @@
 
 ### 3.2 关键能力对标
 
-| 能力 | FoodYolo（自建） | Roboflow | Ultralytics Platform | Label Studio |
+| 能力 | 轻眸识刻（自建） | Roboflow | Ultralytics Platform | Label Studio |
 | :--- | :--- | :--- | :--- | :--- |
 | 采集作业链（SOP / 派单 / 验收） | ✅ | ❌ | ❌ | ❌ |
 | 数据不出本机 | ✅ | ❌ | ❌ | ✅（自托管） |

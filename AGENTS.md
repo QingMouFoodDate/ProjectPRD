@@ -1,11 +1,11 @@
-# AGENTS.md - FoodYolo 产品文档
+# AGENTS.md - 轻眸识刻 产品文档
 
-> AI Agent 操作指南 | FoodYolo 视觉模型训练基建
+> AI Agent 操作指南 | 轻眸识刻 视觉模型训练基建
 
 ## Repository Overview
 
 **Type**: Product Documentation (BRD / MRD / PRD)
-**Product**: FoodYolo - 视觉检测模型训练基建平台
+**Product**: 轻眸识刻 - 视觉检测模型训练基建平台
 **Language**: 中文文档, English technical terms
 **Build/Lint/Test**: N/A (纯文档仓库，无代码)
 
@@ -14,7 +14,7 @@
 ## Document Structure
 
 ```
-FoodYolo/
+轻眸识刻/
 ├── BRD.md                    # 商业需求文档 (战略层)
 ├── MRD.md                    # 市场需求文档 (战术层)
 ├── PRD.md                    # 产品需求文档索引 (产品层)
@@ -51,8 +51,8 @@ FoodYolo/
 
 | 类型 | 格式 | 示例 |
 | :--- | :--- | :--- |
-| BRD | `B0000+项目名` | `B0001_FoodYolo` |
-| MRD | `M0000+项目名` | `M0001_FoodYolo` |
+| BRD | `B0000+项目名` | `B0001_轻眸识刻` |
+| MRD | `M0000+项目名` | `M0001_轻眸识刻` |
 | PRD | `P0000+功能名` | `P0003_视频抽帧` |
 | 模块目录 | `M00+模块名` | `01_数据接入` |
 | 功能 | `F00+功能名` | `F02_压缩包导入` |
