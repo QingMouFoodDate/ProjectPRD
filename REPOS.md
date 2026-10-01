@@ -9,9 +9,9 @@
 
 | 仓库 | 定位 | 一句话职责 |
 | :--- | :--- | :--- |
-| **[QingMouPRD](https://github.com/QingMouFoodDate/QingMouPRD)** | 产品文档 | 本仓库。BRD / MRD / PRD 索引 / 模块详述 / 仓库地图 |
+| **[ProjectDocs](https://github.com/QingMouFoodDate/ProjectDocs)** | 产品文档 | 本仓库。BRD / MRD / PRD 索引 / 模块详述 / 仓库地图 |
 | **[QingMouInfer](https://github.com/QingMouFoodDate/QingMouInfer)** | 基础训练平台（**控制面**） | Web 控制台 + 平台后端（Go + Gin + React 19）：数据、标注、调度、部署、系统 |
-| **[QingMouTrain](https://github.com/QingMouFoodDate/QingMouTrain)** | 训练脚本（**执行面**） | 跑在容器里的一切：训练入口、数据算子、评估、导出、镜像 Dockerfile |
+| **[ModelTrain](https://github.com/QingMouFoodDate/ModelTrain)** | 训练脚本（**执行面**） | 跑在容器里的一切：训练入口、数据算子、评估、导出、镜像 Dockerfile |
 | **[QingMouCollection](https://github.com/QingMouFoodDate/QingMouCollection)** | 采集客户端（**端侧 · B 端**） | React Native App：现场采集上传 + 端侧跑模型做现场验证 |
 | **[QingMouMiniProgram](https://github.com/QingMouFoodDate/QingMouMiniProgram)** | 微信小程序（**端侧 · C 端**） | 消费者拍照看生产日期。⚠️ 未来形态，暂不排期 |
 
@@ -30,7 +30,7 @@ flowchart TB
         WEB["Web 控制台 (React 19)"]
         DB[("平台数据库")]
     end
-    subgraph T["QingMouTrain (执行面)"]
+    subgraph T["ModelTrain (执行面)"]
         JOB["K8s Job 里的容器"]
         OPS["数据算子"]
         EXP["训练 / 评估 / 导出"]
@@ -48,14 +48,14 @@ flowchart TB
 
 **归属判据**：一段逻辑属于哪个仓，看它**在哪运行**——
 - 在**服务端进程**里跑 → `QingMouInfer`
-- 在**训练/处理容器**里跑 → `QingMouTrain`
+- 在**训练/处理容器**里跑 → `ModelTrain`
 - 在**手机/小程序**里跑 → `QingMouCollection` / `QingMouMiniProgram`
 
 ---
 
 ## 2. 模块 → 仓库 归属表
 
-| 模块 | 文档 | QingMouInfer | QingMouTrain | 端侧（Collection / MiniProgram） |
+| 模块 | 文档 | QingMouInfer | ModelTrain | 端侧（Collection / MiniProgram） |
 | :--- | :--- | :--- | :--- | :--- |
 | **01 数据采集** | P0001–P0005 | 项目/SOP 定义、任务派发与领取、产物验收、采集统计 | — | **P0003 端侧实现**：拍摄、元数据、分片上传与断点续传、离线队列 |
 | **02 数据导入** | P0020–P0024 | **全部**：上传会话、压缩包解压、格式解析、预检与清洗、类别映射 | 视频抽帧若以批处理脚本形式运行则在此 | — |
@@ -74,7 +74,7 @@ flowchart TB
 
 这三个契约是**唯一的跨仓事实来源**。任一方变更，必须同步修改另一方的 PRD 与实现。
 
-### 3.1 `QingMouInfer` ↔ `QingMouTrain`：**Job 规约**
+### 3.1 `QingMouInfer` ↔ `ModelTrain`：**Job 规约**
 
 | 项 | 约定 | 文档 |
 | :--- | :--- | :--- |
@@ -96,9 +96,9 @@ flowchart TB
 - **端侧推理**：RN 走端侧推理运行时（待选）；小程序走 `wx.createInferenceSession`（仅 ONNX）。端侧结果**只作现场参考**，服务端一律独立复核（零信任端）。
 - 端上报的进度、置信度、本地粗标**不得**进入 `Annotation` 或数据集。
 
-### 3.3 `QingMouTrain` ↔ `QingMouCollection`：**模型文件契约**
+### 3.3 `ModelTrain` ↔ `QingMouCollection`：**模型文件契约**
 
-唯一的接触面是**导出产物**：`QingMouTrain` 产出 ONNX（及其它格式）→ 登记为 `ManagedFile(owner_type=MODEL_VERSION)` → `QingMouInfer` 下发 → `QingMouCollection` 加载。
+唯一的接触面是**导出产物**：`ModelTrain` 产出 ONNX（及其它格式）→ 登记为 `ManagedFile(owner_type=MODEL_VERSION)` → `QingMouInfer` 下发 → `QingMouCollection` 加载。
 端侧对外的接口是 **ONNX 文件 + 输入尺寸 + 前/后处理约定**（含解码与 NMS 是否在图内）。
 
 ---
@@ -130,8 +130,8 @@ flowchart LR
 
 | 仓库 | 状态 | 说明 |
 | :--- | :--- | :--- |
-| `QingMouPRD` | ✅ 已有内容 | 产品文档仓 |
+| `ProjectDocs` | ✅ 已有内容 | 产品文档仓 |
 | `QingMouInfer` | ✅ README 已就绪 | 待初始化：Go + Gin 后端骨架、React 19 控制台、迁移 |
-| `QingMouTrain` | ✅ README 已就绪 | 待初始化：训练镜像 Dockerfile、训练入口、数据算子 |
+| `ModelTrain` | ✅ README 已就绪 | 待初始化：训练镜像 Dockerfile、训练入口、数据算子 |
 | `QingMouCollection` | ✅ README 已就绪 | 待初始化：RN 工程、采集上传、端侧推理（运行时待选） |
 | `QingMouMiniProgram` | ✅ README 已就绪 | ⚠️ 暂不排期（C 端未来形态） |

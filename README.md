@@ -33,7 +33,7 @@
 ## 仓库结构
 
 ```text
-QingMouPRD/          # 本仓库
+ProjectDocs/          # 本仓库
 ├── PLAN.md                   # 产品形态（一页）+ 可直接分配的 Issue 清单
 ├── SCOPE.md                  # 范围界定：T1 内核 / T2 工程约束 / T3 外端，逐篇归类
 ├── REPOS.md                  # 仓库地图：文档↔代码仓映射、跨仓契约、Issue 拆分顺序
