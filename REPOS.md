@@ -14,6 +14,7 @@
 | **[ModelTrain](https://github.com/QingMouFoodDate/ModelTrain)** | 训练脚本（**执行面**） | 跑在容器里的一切：训练入口、数据算子、评估、导出、镜像 Dockerfile |
 | **[MobileClient](https://github.com/QingMouFoodDate/MobileClient)** | 采集客户端（**端侧 · B 端**） | React Native App：现场采集上传 + 端侧跑模型做现场验证 |
 | **[WxClient](https://github.com/QingMouFoodDate/WxClient)** | 微信小程序（**端侧 · C 端**） | 消费者拍照看生产日期。⚠️ 未来形态，暂不排期 |
+| **[WebClient](https://github.com/QingMouFoodDate/WebClient)** | Web 客户端（**端侧 · C 端**） | 浏览器端在线识别 + 保质期推断。⚠️ 未来形态，暂不排期 |
 
 ### 分层原则
 
@@ -135,3 +136,13 @@ flowchart LR
 | `ModelTrain` | ✅ README 已就绪 | 待初始化：训练镜像 Dockerfile、训练入口、数据算子 |
 | `MobileClient` | ✅ README 已就绪 | 待初始化：RN 工程、采集上传、端侧推理（运行时待选） |
 | `WxClient` | ✅ README 已就绪 | ⚠️ 暂不排期（C 端未来形态） |
+| `WebClient` | ⬜ 占位 README | ⚠️ 暂不排期（C 端未来形态）；定位待澄清（见下） |
+
+### 待澄清：C 端为何有两个仓
+
+`WxClient`（小程序）与 `WebClient`（浏览器）在"拍照识别日期"这件事上是重叠的，
+差异在于 **`WebClient` 多了「保质期推断」**。需要明确：
+
+- 两者是**同一功能的不同入口**（一套逻辑两端复用），还是**面向不同用户**（如小程序面向消费者、Web 面向商家）？
+- 若是前者，是否应该合并到一个仓、或抽出共享的识别逻辑层？
+- **「保质期推断」属于平台能力还是纯前端的计算？** 若需要知道每个 SKU 的保质期天数，那就需要平台侧维护保质期数据——这会新增一个产品实体。
