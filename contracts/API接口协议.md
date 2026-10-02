@@ -1,4 +1,4 @@
-# 《轻眸识刻》多端统一 RESTful API 接口规约 (API Specifications)
+# 《轻眸识刻》多端统一 RESTful API 接口规约
 
 > **契约性质**：跨仓库多端协同硬性规范（WebClient / WxClient / MobileClient ↔ TrainPlatform）  
 > **基准路径**：`http(s)://<host>:<port>/api/v1`  
@@ -19,17 +19,18 @@
 
 ## 二、 接口详述
 
-### 1. 包装日期在线预测 (`/ocr/predict`)
+### 1. 包装日期在线预测
 
 **请求方式**：`POST`  
-**Content-Type**：`multipart/form-data`
+**Content-Type**：`multipart/form-data`  
+**请求路径**：`/ocr/predict`  
 
 #### 请求参数：
 - `image` *(File, 必填)*: 待检测的食品包装照片（支持 JPG/PNG，单图 <= 10MB）；
 - `shelf_life_days` *(Integer, 可选)*: 用户输入的保质期天数（如输入 180），若图片中只有生产日期时配合推算；
 - `return_visual` *(Boolean, 可选, 默认 false)*: 是否返回绘制了检测候选框的 Base64 缩略图（便于 WebClient 直接渲染）。
 
-#### 响应格式 (JSON)：
+#### 响应格式：
 ```json
 {
   "code": 200,
@@ -61,12 +62,13 @@
 
 ---
 
-### 2. 错例与难例纠偏回流 (`/samples/feedback`)
+### 2. 错例与难例纠偏回流
 
 当模型识别错误或用户修改时，客户端发起纠偏上报，用于闭环自进化。
 
 **请求方式**：`POST`  
-**Content-Type**：`application/json`
+**Content-Type**：`application/json`  
+**请求路径**：`/samples/feedback`  
 
 #### 请求参数：
 ```json
@@ -81,7 +83,7 @@
 }
 ```
 
-#### 响应格式 (JSON)：
+#### 响应格式：
 ```json
 {
   "code": 200,
@@ -94,15 +96,16 @@
 
 ---
 
-### 3. 最新端侧模型拉取 (`/models/latest`)
+### 3. 最新端侧模型拉取
 
 移动端或小程序定期检查是否有更新的端侧量化模型。
 
 **请求方式**：`GET`  
+**请求路径**：`/models/latest`  
 **查询参数**：
 - `target_platform`: `onnx` / `ncnn` / `tflite`
 
-#### 响应格式 (JSON)：
+#### 响应格式：
 ```json
 {
   "code": 200,
