@@ -1,0 +1,77 @@
+# 《轻眸识刻》算法模型轻量化交付规约 (Model Export Contracts)
+
+> **契约性质**：算法计算核心 (`ModelTrain`) ➔ 业务后端 (`TrainPlatform`) / 移动客户端 (`MobileClient`)  
+> **交付目标**：实现算法训练产物在跨平台推理引擎（ONNX Runtime / OpenVINO / NCNN）中的无缝加载与标准化调用  
+
+---
+
+## 🎯 一、 小目标检测模型交付规约 (Date Detection Model)
+
+### 1. 模型格式与输入张量
+- **模型格式**：`ONNX` (Opset Version >= 13，需通过 `onnxsim` 结构简化)；
+- **文件命名**：`qingmou_det_<arch>_<version>.onnx`（例如 `qingmou_det_yolox_nano_v2.1.onnx`）；
+- **输入张量 (Input Tensor)**：
+  - 名称：`images`
+  - 形状：`[1, 3, 640, 640]`（动态或静态 Batch 均可，默认推断为 1）
+  - 数据类型：`float32`
+  - 像素排列：`RGB`（经过 Letterbox 等比例自适应缩放并填充灰边）
+  - 归一化规范：像素值除以 255.0，均值 `[0.485, 0.456, 0.406]`，方差 `[0.229, 0.224, 0.225]`。
+
+### 2. 输出张量 (Output Tensor)
+为降低端侧前处理与 NMS 解码的复杂度，推荐模型将解码或 NMS 内嵌至计算图，或输出标准候选阵列：
+- **输出格式**：`[1, 8400, 6]`（假设 8400 个 Anchor 候选）
+  - 前 4 列：`[cx, cy, w, h]`（归一化或像素绝对坐标）；
+  - 第 5 列：`objectness_score`（打码区域置信度）；
+  - 第 6 列：`class_id`（默认类别 0: `date_area`）。
+
+---
+
+## 🔤 二、 包装日期 OCR 识别模型交付规约 (Date OCR Model)
+
+### 1. 模型格式与输入张量
+- **模型格式**：`ONNX` (CRNN 或 SVTR 架构)；
+- **文件命名**：`qingmou_rec_<arch>_<version>.onnx`（例如 `qingmou_rec_crnn_tiny_v2.1.onnx`）；
+- **输入张量**：
+  - 名称：`input`
+  - 形状：`[1, 3, 48, 320]`（固定高度 48 像素，宽度等比例缩放到 320，右侧填充 0）
+  - 数据类型：`float32`
+  - 归一化：`((x / 255.0) - 0.5) / 0.5`。
+
+### 2. 输出与字典集映射 (Dictionary Spec)
+- **输出张量**：`[1, 80, num_classes]`（CTC 序列时间步概率分布）；
+- **字典集文件**：必须附带标准的 `dict.txt` 文件，字符集严格限定为：
+  - 数字：`0 1 2 3 4 5 6 7 8 9`
+  - 分隔符：`. - / :`
+  - 中文关键字：`年 月 日 生 产 保 质 期 至 合 格 批 号`
+  - 英文关键字：`E X P M F G L O T B E S T U S E B Y`
+  - 空白填充位：`<blank>`（CTC 空字符）。
+
+---
+
+## 📦 三、 交付产物目录结构 (Delivery Bundle)
+
+每次算法迭代收敛并在测试集通过精度基线后，`ModelTrain` 向 `TrainPlatform` 交付的 Release 产物必须包含以下三个文件：
+
+```text
+release_bundle_v2.1/
+├── qingmou_det_nano.onnx          # 小目标检测模型文件
+├── qingmou_rec_tiny.onnx          # 局部微型 OCR 识别模型
+├── dict.txt                       # OCR 专用词表
+└── metadata.yaml                  # 模型性能指标卡片 (mAP50, OCR Accuracy, 耗时)
+```
+
+`metadata.yaml` 格式示例：
+```yaml
+model_version: "v2.1"
+created_at: "2026-10-02"
+detection:
+  architecture: "YOLOX-Nano"
+  input_size: [640, 640]
+  mAP_0.5: 0.934
+  avg_latency_ms: 18.5
+recognition:
+  architecture: "CRNN-MobileNetV4"
+  input_size: [48, 320]
+  char_accuracy: 0.961
+  avg_latency_ms: 12.0
+```

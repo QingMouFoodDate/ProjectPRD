@@ -1,162 +1,129 @@
-# 仓库地图 (Repository Map)
+# 《轻眸识刻》多仓库全景地图与协作契约 (Multi-Repo Map & Contracts)
 
-> 本文件定义 **产品文档 ↔ 代码仓库** 的映射关系，是拆分 Issue 的依据。
-> 任何跨仓接口的变更，必须先改本文件与对应 PRD，再动代码。
+> **组织**：`QingMouFoodDate`  
+> **文档定位**：全域 6 大仓库职责边界、跨仓协作契约与并行推进指南  
 
 ---
 
-## 1. 五仓结构
+## 🗺️ 1. 组织 6 大仓库矩阵全景
 
-| 仓库 | 定位 | 一句话职责 |
-| :--- | :--- | :--- |
-| **[ProjectPRD](https://github.com/QingMouFoodDate/ProjectPRD)** | 产品文档 | 本仓库。BRD / MRD / PRD 索引 / 模块详述 / 仓库地图 |
-| **[TrainPlatform](https://github.com/QingMouFoodDate/TrainPlatform)** | 基础训练平台（**控制面**） | Web 控制台 + 平台后端（Go + Gin + React 19）：数据、标注、调度、部署、系统 |
-| **[ModelTrain](https://github.com/QingMouFoodDate/ModelTrain)** | 训练脚本（**执行面**） | 跑在容器里的一切：训练入口、数据算子、评估、导出、镜像 Dockerfile |
-| **[MobileClient](https://github.com/QingMouFoodDate/MobileClient)** | 采集客户端（**端侧 · B 端**） | React Native App：现场采集上传 + 端侧跑模型做现场验证 |
-| **[WxClient](https://github.com/QingMouFoodDate/WxClient)** | 微信小程序（**端侧 · C 端**） | 消费者拍照看生产日期。⚠️ 未来形态，暂不排期 |
-| **[WebClient](https://github.com/QingMouFoodDate/WebClient)** | Web 客户端（**端侧 · C 端**） | 浏览器端在线识别 + 保质期推断。⚠️ 未来形态，暂不排期 |
+整个《轻眸识刻》项目采用**按技术栈与运行环境解耦的多仓库架构**，杜绝大单仓臃肿与代码冲突：
 
-### 分层原则
+| 仓库名称 (GitHub) | 中文定位 | 技术栈属性 | 职责边界与核心资产 |
+| :--- | :--- | :--- | :--- |
+| **`ProjectDocs`**<br>*(即 ProjectPRD)* | **设计与文档中枢** | Markdown / Docs | **系统架构设计、产品需求规格 (PRD)、多端统一接口契约、模型交付标准、数据质量宪法**。严禁存放业务代码。 |
+| **[`TrainPlatform`](https://github.com/QingMouFoodDate/TrainPlatform)** | **业务后端与训练平台** | Python / Go / DB | **多端统一 API 服务（预测/上传/纠偏）、样本资产与元数据管理、轻量训练任务调度、模型版本管理**。 |
+| **[`ModelTrain`](https://github.com/QingMouFoodDate/ModelTrain)** | **算法计算核心** | PyTorch / Python | **小目标日期检测网络、包装日期微型 OCR、图像自适应增强算子、模型轻量化导出 (ONNX) 与 Benchmark 评测**。 |
+| **[`WebClient`](https://github.com/QingMouFoodDate/WebClient)** | **Web 客户端 (在线识别与评测)** | Vue3 / React + Vite | **面向桌面端与全平台的食品包装日期在线拖拽识别、目标框/OCR/到期倒计时可视化、难例纠错标记、答辩演示大屏**。 |
+| **[`MobileClient`](https://github.com/QingMouFoodDate/MobileClient)** | **移动端客户端 (实地采图 App)** | React Native / Flutter | **面向超市/仓库现场的高清实地采图工具、防抖防反光引导、包装类型与保质期初标、离线队列、端侧模型快速初验**。 |
+| **[`WxClient`](https://github.com/QingMouFoodDate/WxClient)** | **微信小程序端 (C 端轻量查日期)** | 微信原生 / Taro | **面向普通消费者的极简“拍照查生产日期与是否过期”、倒计时提醒、即用即走**。 |
+
+---
+
+## 📐 2. 多仓协同与契约依赖拓扑
 
 ```mermaid
 flowchart TB
-    subgraph C["MobileClient (端侧 · B 端)"]
-        RN["React Native App<br/>采集上传 + 端侧测试模型"]
-    end
-    subgraph M["WxClient (端侧 · C 端, 暂不排期)"]
-        MP["微信小程序<br/>拍照看生产日期"]
-    end
-    subgraph I["TrainPlatform (控制面)"]
-        API["平台后端 (Go + Gin)"]
-        WEB["Web 控制台 (React 19)"]
-        DB[("平台数据库")]
-    end
-    subgraph T["ModelTrain (执行面)"]
-        JOB["K8s Job 里的容器"]
-        OPS["数据算子"]
-        EXP["训练 / 评估 / 导出"]
+    subgraph D["ProjectDocs (文档与设计中枢)"]
+        CONTRACT_API["RESTful API 契约<br/>(contracts/api_specs.md)"]
+        CONTRACT_MODEL["模型交付规约<br/>(contracts/model_contracts.md)"]
+        STANDARDS["质量宪法与采集规范<br/>(standards/*)"]
     end
 
-    RN -->|HTTP 契约| API
-    MP -->|HTTP 契约| API
-    WEB --> API
-    API --> DB
-    API -->|"创建 K8s Job<br/>(镜像 digest + 超参快照 + 产物约定)"| JOB
-    JOB --> OPS
-    JOB --> EXP
-    JOB -->|"上传产物 + 回调"| API
+    subgraph Service["业务后端与算力底座"]
+        TP["TrainPlatform (业务后端与平台)"]
+        MT["ModelTrain (算法计算核心)"]
+    end
+
+    subgraph Frontends["多端应用呈现"]
+        WEB["WebClient (桌面与评测前台)"]
+        WX["WxClient (消费者小程序)"]
+        APP["MobileClient (现场采集 App)"]
+    end
+
+    D -.->|"指导与约束"| Service
+    D -.->|"指导与约束"| Frontends
+
+    APP -->|"上传实拍样本"| TP
+    TP -->|"导出标准数据集"| MT
+    MT -->|"交付 ONNX 模型 (遵循契约)"| TP
+    
+    WEB -->|"调用预测接口 (遵循契约)"| TP
+    WX -->|"调用预测接口 (遵循契约)"| TP
+    TP -.->|"下发轻量模型"| APP
+    TP -.->|"下发轻量模型"| WX
 ```
 
-**归属判据**：一段逻辑属于哪个仓，看它**在哪运行**——
-- 在**服务端进程**里跑 → `TrainPlatform`
-- 在**训练/处理容器**里跑 → `ModelTrain`
-- 在**手机/小程序**里跑 → `MobileClient` / `WxClient`
+### 核心归属判据（三问法定仓）：
+1. **代码在哪里跑？**
+   - 跑在手机 App 进程里 ➔ `MobileClient`
+   - 跑在微信宿主环境里 ➔ `WxClient`
+   - 跑在浏览器前台里 ➔ `WebClient`
+   - 跑在后端常规常驻服务里 ➔ `TrainPlatform`
+   - 跑在 GPU 训练与离线评测环境中 ➔ `ModelTrain`
+2. **是接口还是实现？**
+   - 接口定义、协议字段、输入输出格式 ➔ 必须写在 `ProjectDocs/contracts/`；
+   - 接口的路由实现与业务逻辑 ➔ 写在各仓代码中。
 
 ---
 
-## 2. 模块 → 仓库 归属表
+## 📑 3. 功能模块 ➔ 仓库归属矩阵
 
-| 模块 | 文档 | TrainPlatform | ModelTrain | 端侧（Collection / MiniProgram） |
+| 功能业务模块 | ProjectDocs (中枢) | TrainPlatform (后端) | ModelTrain (算法) | 多端客户端 (Web / Wx / Mobile) |
 | :--- | :--- | :--- | :--- | :--- |
-| **01 数据采集** | P0001–P0005 | 项目/SOP 定义、任务派发与领取、产物验收、采集统计 | — | **P0003 端侧实现**：拍摄、元数据、分片上传与断点续传、离线队列 |
-| **02 数据导入** | P0020–P0024 | **全部**：上传会话、压缩包解压、格式解析、预检与清洗、类别映射 | 视频抽帧若以批处理脚本形式运行则在此 | — |
-| **03 数据管理** | P0040–P0046 | **全部**：存储配置、数据集与版本、检索、预览、统计、导出、GC | — | — |
-| **04 标注中心** | P0060–P0066 | **全部**：标注器（前端）、派单、质检、预标注编排、转写、统计 | 预标注的批量推理作业 | — |
-| **05 训练平台** | P0080–P0087 | **控制面全部**：节点、镜像登记、任务提交与调度、日志看板、模型仓库、评估编排 | **执行面**：训练入口、超参→Exp 映射、checkpoint 存取与续训、产物上传回调、评估执行 | — |
-| **06 流水线** | P0100–P0101 | 流程定义、编排、执行记录、重跑调度 | **算子实现**：去重、清洗、切分、增强、评估、导出、难例挖掘 | — |
-| **07 部署推理** | P0110–P0113 | 服务发布与灰度（K8s Deployment）、在线试跑、调用统计 | 导出脚本（ONNX/TRT/OpenVINO/NCNN）、导出后精度复测 | — |
-| **08 端接入** | P0120–P0122 | **服务端契约实现**：Open API、鉴权、模型下发清单 | — | **RN 实现**（MobileClient）：采集上传、离线队列、端侧测试模型<br/>**小程序实现**（WxClient，暂不排期） |
-| **09 系统管理** | P0130–P0132 | **全部**：用户与权限、审计日志、告警中心 | — | — |
-| **训练环境镜像** | P0081 | 镜像登记与分发 | **Dockerfile 与镜像定义**（CUDA → PyTorch → YOLOX → 代码） | — |
+| **01 数据采集与现场采图** | SOP 与质量规范标准 | 接收上传接口、元数据存盘 | — | **MobileClient**：现场拍摄、防抖引导、断点续传队列 |
+| **02 数据管理与清洗审核** | 事故复盘与 6 大红线 | 样本管理看板、审核流转、哈希查重 | 数据增强、切分清洗算子 | **WebClient**：在线人工审核与标定辅助页面 |
+| **03 标注中心与难例沉淀** | 标注几何与标签规范 | 任务派单、错例反馈接收 | 辅助预标注推理脚本 | **WebClient / Mobile**：错例纠错一键回流上报 |
+| **04 训练调度与实验管理** | 训练指标与 Benchmark 规约 | 本地/远程训练调起、指标日志看板 | **全部核心**：YOLO 小目标检测、OCR 识别网络、微调 | — |
+| **05 模型轻量化导出** | 模型输入输出张量规格规约 | 模型资产版本管理、预签名下载下发 | **全部核心**：ONNX / NCNN / TFLite 导出、量化 | **Mobile / Wx**：端侧加载 ONNX 模型做离线初验 |
+| **06 多端在线推断与展示** | RESTful API 契约协议 | `/api/v1/ocr/predict` 服务端调度与推算 | 核心推理引擎包装 (C++ / Python) | **WebClient**：桌面交互展示<br/>**WxClient**：扫码查日期与过期推算 |
 
 ---
 
-## 3. 跨仓接口契约（Issue 拆分的关键切面）
+## 🤝 4. 关键跨仓契约（团队协作事实标准）
 
-这三个契约是**唯一的跨仓事实来源**。任一方变更，必须同步修改另一方的 PRD 与实现。
+### ① 契约一：多端 ↔ `TrainPlatform` (HTTP RESTful 契约)
+- **权威文件**：`ProjectPRD/contracts/api_specs.md`
+- **核心约定**：统一 `/api/v1/` 命名空间。`WebClient`、`WxClient` 和 `MobileClient` 无需关心后端底层是 Python 还是 Go，仅依据规范中的 JSON 字段进行数据收发。
 
-### 3.1 `TrainPlatform` ↔ `ModelTrain`：**Job 规约**
+### ② 契约二：`ModelTrain` ➔ 后端与端侧 (模型交付契约)
+- **权威文件**：`ProjectPRD/contracts/model_contracts.md`
+- **核心约定**：模型输入固定为 `[1, 3, 640, 640]`，输出必须经过解算或包含固定格式的 Anchor/BBox 阵列；OCR 附带标准 `dict.txt`。
 
-| 项 | 约定 | 文档 |
-| :--- | :--- | :--- |
-| 触发方式 | Infer 创建 `K8s Job`，`TrainNode` 是 K8s Node 的镜像视图 | P0080 / P0082 |
-| 镜像 | 以 **image digest** 固定（非 tag），`imagePullPolicy: IfNotPresent` | P0081 |
-| 入参 | 超参快照（`params_hash`）、数据物化路径或预签名 URL、输出目录、`attempt` 序号 | P0082 / P0083 |
-| 超参传递 | 由快照生成白名单化的 `exp_override.py` + 只读 `train_args.json` | P0083 |
-| 数据入容器 | 对象存储预签名直读，或 PVC / hostPath 缓存 | P0082 |
-| 产物约定 | 输出目录 `YOLOX_outputs/<experiment_name>/`；ckpt 命名固定（`latest_ckpt.pth` 等） | P0083 / P0087 |
-| 产物出站 | 容器内上传对象存储 → 回调 Infer；幂等键 `(train_task_id, attempt)` | P0085 |
-| 续训语义 | `attempt > 1` 默认从 `latest_ckpt.pth` 恢复（含 optimizer / epoch / lr） | P0087 |
-| 失败分工 | 容器崩溃 → K8s `restartPolicy`；Pod 终态 Failed → 平台按 `attempt` 重试 | P0082 / P0087 |
-
-### 3.2 `TrainPlatform` ↔ 端侧（`MobileClient` / `WxClient`）：**端接入 HTTP 契约**
-
-- 接口清单即 [P0121](./PRD/08_端接入/P0121_RN客户端接入契约.md)（RN，20 个端点）与 [P0120](./PRD/08_端接入/P0120_小程序接入契约.md)（小程序，21 个端点，暂不排期）。
-- **上传链路的权威定义在平台侧**：`UploadSession` / `UploadChunk` 由 P0020 定义，客户端只实现。
-- **模型下发**：平台提供清单 + 预签名 URL；端侧下载并校验 sha256，按 `(model_version_id, target_platform)` 管理缓存。
-- **端侧推理**：RN 走端侧推理运行时（待选）；小程序走 `wx.createInferenceSession`（仅 ONNX）。端侧结果**只作现场参考**，服务端一律独立复核（零信任端）。
-- 端上报的进度、置信度、本地粗标**不得**进入 `Annotation` 或数据集。
-
-### 3.3 `ModelTrain` ↔ `MobileClient`：**模型文件契约**
-
-唯一的接触面是**导出产物**：`ModelTrain` 产出 ONNX（及其它格式）→ 登记为 `ManagedFile(owner_type=MODEL_VERSION)` → `TrainPlatform` 下发 → `MobileClient` 加载。
-端侧对外的接口是 **ONNX 文件 + 输入尺寸 + 前/后处理约定**（含解码与 NMS 是否在图内）。
+### ③ 契约三：全员数据质量底线 (质量宪法契约)
+- **权威文件**：`ProjectPRD/standards/数据采集审核与质量控制规范.md`
+- **核心约定**：任何进入系统的数据集，必须 100% 遵守实用平衡版规范（4 项放宽容差 + 6 大底线红线），单张原图无损肉眼审定，严禁任何形式的算法伪造与拼图大板粗审。
 
 ---
 
-## 4. 拆分 Issue 的建议顺序
+## 💡 5. 核心产品认知与保质期推导共识
 
-按**依赖方向**拆，避免互等：
+1. **保质期推断：从包装上直接读，不建冗余商品库**：
+   - 坚决不做沉重且维护成本极高的 SKU 平台商品库，保质期信息直接通过视觉算法从食品包装上提取（如“保质期 180 天”或“保质期至 2027-04-01”）；
+   - 算法模型不仅需要检测并识别“生产日期”，也应识别“保质期”与“到期日”字段；
+   - 客户端基于生产日期与保质期天数纯前端计算“剩余天数 / 是否临期”，轻量敏捷。
+2. **WebClient 与 WxClient 的定位协同**：
+   - `WebClient`：主打桌面端、大屏答辩演示、在线图片拖拽识别、目标框与置信度详细可视化、难例标定审核；
+   - `WxClient`：主打 C 端普通消费者场景、一键拍照、极简即用即走。
+
+---
+
+## 🚀 6. 并行推进顺序与分工建议
+
+各端无需相互等待，可按契约并行开工：
 
 ```mermaid
 flowchart LR
-    A["1. Infer: 契约与骨架<br/>数据模型 + API 框架 + 鉴权"] --> B["2. Collection: 上传链路<br/>对齐上传会话契约"]
-    A --> C["3. Train: Job 规约<br/>镜像 + 入口 + 产物约定"]
-    C --> D["4. Infer: 任务调度<br/>创建 Job + 回调 + 状态机"]
-    B --> E["5. Infer: 数据入湖<br/>导入 + 预检 + 版本"]
-    E --> F["6. Infer: 标注中心"]
-    F --> G["7. Train: 训练入口<br/>YOLOX + 超参映射"]
-    G --> H["8. Infer: 指标与模型仓库"]
-    D --> H
-    H --> I["9. Train: 评估与导出"]
-    I --> J["10. Collection: 端侧推理<br/>模型下发 + 缓存"]
-    A --> J
+    A["阶段 1：文档与契约锁定<br/>(ProjectDocs 规范就绪)"] --> B["后端组 (TrainPlatform)<br/>搭骨架 + 跑通 /predict Mock API"]
+    A --> C["前端组 (WebClient)<br/>搭建 Vue3/React 页面 + 对接 Mock"]
+    A --> D["算法组 (ModelTrain)<br/>197 张基准数据微调 + 导出 ONNX"]
+    B --> E["联调闭环：真实模型载入与在线推断"]
+    C --> E
+    D --> E
+    E --> F["扩充移动端：MobileClient 采图 + WxClient 小程序"]
 ```
 
-**关键路径**：先把 §3 的三个契约用最小实现打通（一条数据能上传 → 能训练 → 能导出 → 端上能跑），再按模块补深度。
-
----
-
-## 5. 仓库初始化状态
-
-| 仓库 | 状态 | 说明 |
-| :--- | :--- | :--- |
-| `ProjectPRD` | ✅ 已有内容 | 产品文档仓 |
-| `TrainPlatform` | ✅ README 已就绪 | 待初始化：Go + Gin 后端骨架、React 19 控制台、迁移 |
-| `ModelTrain` | ✅ README 已就绪 | 待初始化：训练镜像 Dockerfile、训练入口、数据算子 |
-| `MobileClient` | ✅ README 已就绪 | 待初始化：RN 工程、采集上传、端侧推理（运行时待选） |
-| `WxClient` | ✅ README 已就绪 | ⚠️ 暂不排期（C 端未来形态） |
-| `WebClient` | ⬜ 占位 README | ⚠️ 暂不排期（C 端未来形态）；定位待澄清（见下） |
-
-### C 端两仓的关系：待定
-
-`WxClient`（小程序）与 `WebClient`（浏览器）在"拍照识别日期"上功能重叠，**两者关系尚未确定，暂标待定**。
-
-在定下来之前，**两侧都不要提前做共享逻辑的抽象**——先各自跑通，撞到重复再抽。
-提前为"可能复用"设计接口，是这类项目最常见的返工来源。
-
-### 保质期推断：从包装上读，不建商品库
-
-已确定：**不做 SKU 保质期表**，保质期信息直接从包装上读（如「保质期 180 天」或「保质期至 2027-04-01」）。
-
-因此这对平台的影响在**标注与模型层面，而不是数据模型层面**：
-
-| 影响 | 说明 |
-| :--- | :--- |
-| 检测/转写目标扩大 | 除**生产日期**外，还包括**保质期**与**到期日**。已对应 P0065 的 `text_type` 枚举，需补一个 `SHELF_LIFE` 取值 |
-| **不新增平台实体** | 无 SKU 表、无商品库、无保质期字典 |
-| C 端「剩余天数 / 是否临期」 | 纯前端计算：生产日期 + 保质期时长 → 推算 |
-
-**代价**：模型要能读更多种排版。食品包装上「生产日期」「保质期」「到期日」「批号」常常排在一起、字体相同，
-区分它们是**语义判断而不是视觉判断**——这是这个任务真正的难点，比框出日期区域难得多。
-标注时必须把这几类分开标（P0065 已按此设计），否则模型学到的是"框住这堆字"，而不是"这是生产日期"。
+1. **关键路径**：优先让 `TrainPlatform` 依据 `api_specs.md` 提供一个能够返回 Mock 数据的预测接口；
+2. `WebClient` 前端组立刻对接，完成精美的可视化拖拽页面与大屏答辩演示原型；
+3. `ModelTrain` 算法组独立在实验室训练并导出 ONNX 模型，替换后端的 Mock 逻辑；
+4. 三者一合龙，项目的核心可演示成果立刻达成！
