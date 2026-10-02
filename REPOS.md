@@ -25,8 +25,8 @@
 ```mermaid
 flowchart TB
     subgraph D["ProjectDocs (文档与设计中枢)"]
-        CONTRACT_API["RESTful API 契约<br/>(contracts/api_specs.md)"]
-        CONTRACT_MODEL["模型交付规约<br/>(contracts/model_contracts.md)"]
+        CONTRACT_API["API 接口协议<br/>(contracts/API接口协议.md)"]
+        CONTRACT_MODEL["模型交付规约<br/>(contracts/模型交付规约.md)"]
         STANDARDS["质量规范与协作原则<br/>(standards/*)"]
     end
 
@@ -62,7 +62,7 @@ flowchart TB
    - 跑在后端常规常驻服务里 ➔ `TrainPlatform`
    - 跑在 GPU 训练与离线评测环境中 ➔ `ModelTrain`
 2. **是接口还是实现？**
-   - 接口定义、协议字段、输入输出格式 ➔ 必须写在 `ProjectDocs/contracts/`；
+   - 接口定义、协议字段、输入输出格式 ➔ 必须写在 `ProjectPRD/contracts/`；
    - 接口的路由实现与业务逻辑 ➔ 写在各仓代码中。
 
 ---
@@ -83,15 +83,15 @@ flowchart TB
 ## 4. 关键跨仓契约（团队协作事实标准）
 
 ### ① 契约一：多端 ↔ `TrainPlatform` (HTTP RESTful 契约)
-- **权威文件**：`ProjectPRD/contracts/api_specs.md`
+- **权威文件**：`ProjectPRD/contracts/API接口协议.md`
 - **核心约定**：统一 `/api/v1/` 命名空间。`WebClient`、`WxClient` 和 `MobileClient` 无需关心后端底层是 Python 还是 Go，仅依据规范中的 JSON 字段进行数据收发。
 
 ### ② 契约二：`ModelTrain` ➔ 后端与端侧 (模型交付契约)
-- **权威文件**：`ProjectPRD/contracts/model_contracts.md`
+- **权威文件**：`ProjectPRD/contracts/模型交付规约.md`
 - **核心约定**：模型输入固定为 `[1, 3, 640, 640]`，输出必须经过解算或包含固定格式的 Anchor/BBox 阵列；OCR 附带标准 `dict.txt`。
 
 ### ③ 契约三：全员数据质量底线 (质量宪法契约)
-- **权威文件**：`ProjectPRD/standards/数据采集审核与质量控制规范.md`
+- **权威文件**：`ProjectPRD/standards/数据质量规范.md`
 - **核心约定**：任何进入系统的数据集，必须 100% 遵守实用平衡版规范（4 项放宽容差 + 6 大底线红线），单张原图无损肉眼审定，严禁任何形式的算法伪造与拼图大板粗审。
 
 ---
@@ -123,7 +123,7 @@ flowchart LR
     E --> F["拓展探索：MobileClient 采图 + WxClient 小程序"]
 ```
 
-1. **关键路径**：优先由后端依据 `api_specs.md` 提供一个能够返回 Mock 数据的预测接口；
+1. **关键路径**：优先由后端依据 `API接口协议.md` 提供一个能够返回 Mock 数据的预测接口；
 2. 前端立刻对接，完成精美的可视化拖拽页面与大屏答辩演示原型；
 3. 算法独立在实验室训练并导出 ONNX 模型，替换后端的 Mock 逻辑；
 4. 三者一合龙，项目的核心可演示成果立刻达成！
