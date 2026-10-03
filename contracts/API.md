@@ -1,7 +1,7 @@
 # 《轻眸识刻》多端统一 API 接口协议
 
 > **规范性质**：跨仓系统级网络接口硬性契约  
-> **适用范围**：`TrainPlatform`（服务端实现）与 `WebClient`、`MobileClient`、`WxClient`（客户端调用）
+> **适用范围**：`InferPlatform`（服务端实现）与 `WebClient`、`MobileClient`、`WxClient`（客户端调用）
 
 ---
 

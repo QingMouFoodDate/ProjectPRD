@@ -1,7 +1,7 @@
 # 《轻眸识刻》算法模型轻量化交付规约
 
 > **规范性质**：算法研发到推理运行时的标准化模型交付硬性契约  
-> **适用范围**：`ModelTrain`（算法导出）与 `TrainPlatform`（推理服务加载）
+> **适用范围**：`ModelTrain`（算法导出）与 `InferPlatform`（推理服务加载）
 
 ---
 
@@ -80,7 +80,7 @@ environment:
   min_version: "1.15.0"
 compatibility:
   platforms: ["linux-x64", "android-arm64"]
-  clients: ["TrainPlatform", "MobileClient"]
+  clients: ["InferPlatform", "MobileClient"]
 checksums:
   qingmou_det.onnx: "<sha256>"
   qingmou_rec.onnx: "<sha256>"

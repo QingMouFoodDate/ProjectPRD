@@ -9,19 +9,23 @@
 核心原则：
 
 1. 客户端负责交互，不直接访问数据库或模型文件；
-2. TrainPlatform 负责会话编排、证据聚合和业务决策；
-3. Inference Runtime 只输出模型机器观察值；
-4. ModelTrain 只通过标准模型包向推理运行时离线交付；
-5. `Observation -> Evidence -> Decision` 是稳定的数据处理主线；
-6. 人工纠偏经过质量审核后才可成为训练候选，不自动改变线上模型。
+2. InferPlatform 负责会话编排、证据聚合和业务决策，对外服务全部客户端；
+3. Inference Runtime 是 InferPlatform 内部的推理运行时，只输出模型机器观察值；
+4. TrainPlatform 负责样本资产、数据集版本与切分、标注作业和训练任务调度，对内不对外；
+5. ModelTrain 只通过标准模型包向推理运行时离线交付；
+6. `Observation -> Evidence -> Decision` 是稳定的数据处理主线；
+7. 人工纠偏经过质量审核后才可成为训练候选，不自动改变线上模型。
 
-## 二、六仓职责矩阵
+对外服务与对内生产是两条独立链路：InferPlatform 面向客户端请求，TrainPlatform 面向数据与算法工作。两者不得互相侵入职责。
+
+## 二、七仓职责矩阵
 
 | 仓库 | 主要职责 |
 | :--- | :--- |
 | `ProjectPRD` | 需求、架构、接口、数据、模型和质量规范 |
-| `TrainPlatform` | API、会话、资产、证据聚合和标示状态决策 |
-| `ModelTrain` | 数据适配、训练、评测和模型导出 |
+| `TrainPlatform` | 集成调度训练平台：样本资产、数据集版本与切分、标注作业、训练任务调度、模型仓库与血缘 |
+| `ModelTrain` | 容器内算法研发：数据适配、训练、评测和模型导出，由 TrainPlatform 调度 |
+| `InferPlatform` | 推理平台：模型加载与前向推理、会话编排、证据聚合、标示状态决策与对外 API |
 | `WebClient` | 在线识别、结果展示、证据查看和人工纠偏 |
 | `MobileClient` | 覆盖 WebClient 能力并提供移动端增强 |
 | `WxClient` | 免安装查验、轻量展示和微信分享 |
@@ -51,7 +55,7 @@ flowchart TB
         WX["WxClient"]
     end
 
-    subgraph Platform["TrainPlatform 在线业务层"]
+    subgraph Platform["InferPlatform 在线业务层"]
         API["API 接入层"]
         SESSION["会话编排层"]
         ADAPTER["推理适配层"]
@@ -128,9 +132,9 @@ ModelTrain
   -> Inference Runtime
 
 客户端
-  -> TrainPlatform
+  -> InferPlatform
   -> Inference Runtime
-  -> TrainPlatform
+  -> InferPlatform
   -> 客户端
 ```
 
@@ -156,7 +160,7 @@ flowchart LR
 ```mermaid
 flowchart LR
     CLIENTS["WebClient / MobileClient / WxClient"]
-    PLATFORM["TrainPlatform<br/>API、会话、决策、资产"]
+    PLATFORM["InferPlatform<br/>API、会话、决策、资产"]
     RUNTIME["Inference Runtime<br/>模型加载与前向推理"]
     STORAGE["受控资产存储"]
     CLIENTS --> PLATFORM
@@ -172,7 +176,7 @@ flowchart LR
 flowchart LR
     MOBILE["MobileClient"]
     EDGE["端侧模型<br/>候选 Observation"]
-    PLATFORM["TrainPlatform"]
+    PLATFORM["InferPlatform"]
     DECISION["统一 Evidence / Decision"]
     MOBILE --> EDGE
     EDGE -.低置信度或需复核.-> PLATFORM
