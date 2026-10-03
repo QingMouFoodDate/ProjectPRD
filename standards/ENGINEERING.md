@@ -1,7 +1,9 @@
 # 《轻眸识刻》工程协作与规范指南
 
 > **规范性质**：全系统开发流转、统一命名、文档排版、代码协同与 Git 提交硬性标准  
-> **适用范围**：`QingMouFoodDate` 组织下全部 6 个代码仓库及协同工作区
+> **适用范围**：`QingMouFoodDate` 组织下全部代码仓库及协同工作区
+
+本规范分为两类内容：分支、提交、评审和文档排版属于通用协作规则；API 字段、枚举值、模型文件名和数据资产命名属于本项目领域契约。领域契约变更时，必须同步评估相关仓库的实现和测试。
 
 ---
 
@@ -9,30 +11,23 @@
 
 为保证多端跨仓协同的代码自解释性与一致性，全系统所有命名严格遵循以下规范：
 
-### 1. Git 分支与提交命名
-- **分支命名**：全部小写，短横线分隔，带前缀类型：
-  - 主干分支：`main`；
-  - 特性分支：`feat/<特性英文名>`（如 `feat/web-session-ui`、`feat/p2-head`）；
-  - 缺陷修复：`fix/<缺陷英文名>`（如 `fix/cors-gateway`、`fix/leap-year-calc`）。
-- **提交命名**：严格遵循 Conventional Commits 格式 `<emoji> <type>: <简明中文改动>`（如 `✨ feat: 新增多图会话时间线组件`、`🐞 fix: 修复闰年2月到期日推导偏差`）。
-
-### 2. 数据集样本与资产命名
+### 1. 数据集样本与资产命名
 - **图像原图文件**：严格采用 **5 位连续正整数与前导零补齐**命名，统一后缀 `.jpg`：
   - 范围示例：`00001.jpg` ~ `00197.jpg`；
   - 严禁包含空格、中文、特殊符号或时间戳后缀。
 - **标注清单文件**：固定命名为 `manifest.jsonl`，按行存储 JSON 格式实体。
 
-### 3. API 路由与字段数据命名
+### 2. API 路由与字段数据命名
 - **RESTful API 端点**：全部小写名词、复数形式、短横线（kebab-case）或斜杠层级：
   - 示例：`POST /api/v1/sessions`、`POST /api/v1/sessions/{session_id}/images`。
 - **JSON 请求与响应字段**：统一采用蛇形小写命名（`snake_case`）：
   - 示例：`session_id`、`image_id`、`mfg_date`、`exp_date`、`shelf_life_days`、`marked_status`。
 - **枚举值与系统常量**：全大写下划线（`SCREAMING_SNAKE_CASE`）：
-  - 标示期限状态：`WITHIN_MARKED_PERIOD`、`APPROACHING_EXPIRY`、`PAST_MARKED_PERIOD`、`CANNOT_DETERMINE`；
-  - 证据复核状态：`EVIDENCE_COMPLETE`、`INCOMPLETE_INFO`、`CONFLICTING_EVIDENCE`、`LOW_CONFIDENCE`；
+  - 标示期限状态：`WITHIN_MARKED_PERIOD`、`NEAR_EXPIRY`、`PAST_MARKED_PERIOD`、`UNDETERMINED`；
+  - 证据复核状态：`EVIDENCE_COMPLETE`、`INFORMATION_MISSING`、`EVIDENCE_CONFLICT`、`LOW_CONFIDENCE`；
   - 打码工艺枚举：`inkjet_dot_matrix`、`laser_engraving`、`emboss`、`label_thermal`。
 
-### 4. 算法模型与发布包命名
+### 3. 算法模型与发布包命名
 - **核心模型资产**：
   - 极小目标定位模型：`qingmou_det.onnx`；
   - 微型字符识别模型：`qingmou_rec.onnx`；
@@ -40,7 +35,7 @@
   - 模型评测卡片：`metadata.yaml`。
 - **发布产物包目录**：`release_bundle_vX`（如 `release_bundle_v2/`）。
 
-### 5. 文档与各级标题命名
+### 4. 文档与各级标题命名
 - **顶层核心文档**：全大写英文字符加 `.md` 后缀（`README.md`、`REQUIREMENTS.md`、`ARCHITECTURE.md`、`RESEARCH.md`、`ROADMAP.md`）；
 - **契约与标准文档**：全大写英文字符加 `.md` 后缀（`API.md`、`DATA.md`、`MODEL.md`、`DATA_QUALITY.md`、`ENGINEERING.md`）；
 - **各级 Markdown 标题**：所有标题（`#`、`##`、`###`、`####`）末尾**严禁出现任何中英文括号及其附注内容**。
@@ -56,22 +51,33 @@
 - **`fix/*` 修复分支**：针对联调或运行中暴露的缺陷进行针对性热修复。
 
 ### 2. 提交信息格式规范
-代码提交说明统一遵循 Conventional Commits 格式：`<emoji> <type>: <简明中文改动>`（或 `<emoji> <type>(<作用域>): <简明中文改动>`）：
+代码提交说明统一遵循以下格式：
+
+```text
+<emoji> <type>: <简明改动>
+```
+
+其中：
+
+- `emoji` 为必填项，表示提交类型的视觉标识；
+- `type` 必须使用下表中的英文类型；
+- `简明改动` 使用中文动宾短语，不以句号结尾；
+- 不使用未在下表定义的 emoji 或提交类型。
 
 | 提交前缀 | 语义说明 | 适用场景示例 |
 | :--- | :--- | :--- |
-| `🎉 init` | **项目初始化** | 仓库初始工程结构搭建、基础配置文件创建 |
-| `✨ feat` | **添加新特性** | 新增会话接口、新增 Canvas 绘制组件、新增数据增强算子 |
-| `🐞 fix` | **修复缺陷** | 修复日期解析闰年错误、修复跨域异常、修复移动端旋转角误差 |
-| `🎈 perf` | **性能与体验优化** | 优化模型推理耗时、提升前端缩略图加载流畅度 |
-| `🦄 refactor` | **代码重构** | 调整代码分层解耦、重命名变量，不影响原有逻辑功能 |
-| `📃 docs` | **修改文档** | 补充或更新 README、API 接口协议、系统架构图、注释说明 |
-| `🌈 style` | **格式缩进调整** | 代码排版、分号、空格调整，不影响实际运行逻辑 |
-| `🧪 test` | **测试用例** | 增加单元测试、集成测试用例、自动化质检测试 |
-| `🔧 build` | **依赖相关** | `requirements.txt`、`package.json`、构建脚本或打包配置调整 |
-| `🐎 ci` | **CI/CD 配置** | GitHub Actions 持续集成脚本、自动化部署流水线微调 |
-| `🐳 chore` | **构建或辅助工具** | 辅助脚本、开发期抓取工具、环境辅助配置变更 |
-| `↩ revert` | **版本回滚** | 回滚撤销此前某次错误的提交 |
+| `🎉 init` | **项目初始化** | `🎉 init: 初始化仓库工程结构` |
+| `✨ feat` | **添加新特性** | `✨ feat: 新增多图会话接口` |
+| `🐞 fix` | **修复缺陷** | `🐞 fix: 修复闰年日期推导偏差` |
+| `🎈 perf` | **性能与体验优化** | `🎈 perf: 优化模型推理耗时` |
+| `🦄 refactor` | **代码重构** | `🦄 refactor: 调整业务平台模块分层` |
+| `📃 docs` | **修改文档** | `📃 docs: 更新系统架构与接口说明` |
+| `🌈 style` | **格式缩进调整** | `🌈 style: 统一组件代码排版` |
+| `🧪 test` | **测试用例** | `🧪 test: 增加会话接口集成测试` |
+| `🔧 build` | **依赖相关** | `🔧 build: 更新模型导出依赖` |
+| `🐎 ci` | **CI/CD 配置** | `🐎 ci: 调整持续集成检查流程` |
+| `🐳 chore` | **构建或辅助工具** | `🐳 chore: 更新开发辅助脚本` |
+| `↩ revert` | **版本回滚** | `↩ revert: 回滚会话接口变更` |
 
 ### 3. 提交前真实核验网关
 在本地工作区执行提交前，必须严格完成核验：

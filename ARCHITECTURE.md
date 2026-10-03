@@ -1,131 +1,204 @@
-# 《轻眸识刻》系统总体架构设计
+# 轻眸识刻系统总体架构
 
-> **文档定位**：系统技术边界与架构拓扑唯一事实来源，定义系统组件划分、数据流向模型与部署形态  
-> **关联依据**：[REQUIREMENTS.md](REQUIREMENTS.md)
+> **文档定位**：系统技术边界、数据流向和部署形态的稳定事实来源
 
----
+## 一、系统定位与架构原则
 
-## 一、 系统定位与业务主线
+轻眸识刻面向食品流通与消费场景，负责识别包装日期并推导包装上的标示状态。系统不直接判断食品是否绝对安全或适宜食用。
 
-轻眸识刻是一套面向食品流通与消费场景的智能包装日期识别与标示期限推导系统。系统以“找得到、读得准、判得清、能改进”为核心技术闭环：
+核心原则：
+
+1. 客户端负责交互，不直接访问数据库或模型文件；
+2. TrainPlatform 负责会话编排、证据聚合和业务决策；
+3. Inference Runtime 只输出模型机器观察值；
+4. ModelTrain 只通过标准模型包向推理运行时离线交付；
+5. `Observation -> Evidence -> Decision` 是稳定的数据处理主线；
+6. 人工纠偏经过质量审核后才可成为训练候选，不自动改变线上模型。
+
+## 二、六仓职责矩阵
+
+| 仓库 | 主要职责 |
+| :--- | :--- |
+| `ProjectPRD` | 需求、架构、接口、数据、模型和质量规范 |
+| `TrainPlatform` | API、会话、资产、证据聚合和标示状态决策 |
+| `ModelTrain` | 数据适配、训练、评测和模型导出 |
+| `WebClient` | 在线识别、结果展示、证据查看和人工纠偏 |
+| `MobileClient` | 覆盖 WebClient 能力并提供移动端增强 |
+| `WxClient` | 免安装查验、轻量展示和微信分享 |
+
+## 三、客户端关系
 
 ```mermaid
 flowchart LR
-    A["图像初筛"] --> B["多分支感知 (小目标检测 + 受限OCR)"]
-    B --> C["证据聚合与语义推导"]
-    C --> D["客观标示状态输出"]
-    D -.->|"人工纠偏"| E["难例样本回流优化"]
+    MOBILE["MobileClient<br/>功能完整移动端"]
+    WEB["WebClient<br/>通用 Web 基础端"]
+    WX["WxClient<br/>微信免安装入口"]
+
+    MOBILE -.覆盖并扩展.-> WEB
+    WX -.提供替代入口.-> WEB
+    WX -.复杂任务可转入.-> MOBILE
 ```
 
----
+MobileClient 在能力上覆盖 WebClient 的全部在线识别能力，并增加移动设备专属能力。WxClient 面向免安装、临时查验、长辈使用和结果分享，不以覆盖其他客户端的全部能力为目标。
 
-## 二、 组织六仓职责矩阵
-
-系统按技术栈与运行环境物理隔离为 6 个核心代码仓库，各仓边界清晰、职责严格解耦：
-
-| 仓库名称 | 领域属性 | 运行环境与技术栈 | 核心工程职责与定位 |
-| :--- | :--- | :--- | :--- |
-| **`ProjectPRD`** | **设计与文档中枢** | Markdown / Docs | 全域单一事实来源：系统架构、C0-C3需求池、接口契约与质量标准。不存放业务代码。 |
-| **`TrainPlatform`** | **业务后端与平台** | Python (FastAPI) / DB | 客户端会话编排、多端统一 RESTful API、集中样本存储管理、日期决策引擎与难例归集。 |
-| **`ModelTrain`** | **算法研发与评测** | PyTorch / Python | 极小目标检测网络、断笔点阵 OCR、8 项消融实验设计与轻量化 ONNX 模型导出。 |
-| **`WebClient`** | **Web 原型系统** | Vue 3 / React (Vite) | 大创结题核心验收成果：多图会话、原生相机/条码解析、双重视图呈现、状态卡片与人工纠偏。 |
-| **`MobileClient`** | **移动端客户端** | Flutter / 原生 | 移动实拍工具、传感器防抖、本地离线储藏台账、弱网队列与端侧推理探索。 |
-| **`WxClient`** | **微信小程序端** | 微信原生 / Taro | 消费端轻量免安装备选通道、长辈关怀大字模式、微信一键社交分享卡片。 |
-
----
-
-## 三、 核心领域实体与数据流向模型
-
-系统在处理识别任务时，统一遵循自底向上的数据抽象流向：
+## 四、逻辑分层架构
 
 ```mermaid
-flowchart TD
-    S["RecognitionSession (多图识别会话)"]
-    I["Image (上传的单张包装图像)"]
-    O["Observation (视觉算子输出的机器观察值: 检测框/转录文本)"]
-    E["Evidence (经语义规则提炼的证据片段: 生产日期/保质期时长/条码)"]
-    D["Decision (标示在期/临期/超期/缺失状态判定与复核建议)"]
-
-    S -->|"包含 1..N 张"| I
-    I -->|"推理抽取"| O
-    O -->|"规则解析"| E
-    E -->|"自洽性校验与进位推导"| D
-```
-
-1. **`RecognitionSession`（识别会话）**：客户端发起的单次查验会话，支持追加多张不同角度特写；
-2. **`Image`（图像资产）**：经前置质量初筛合格并落盘于集中存储的原始图像；
-3. **`Observation`（机器观察值）**：Inference Runtime 输出的标准检测矩形框坐标、置信度与 OCR 文本候选；
-4. **`Evidence`（结构化证据）**：从观察值中提炼的强事实（生产日期、到期日）与弱事实（条形码、说明文本）；
-5. **`Decision`（判定决策）**：结合日历规则推导出的二维判定结论（期限状态 + 复核状态）。
-
----
-
-## 四、 在线运行时与离线算法研发边界
-
-系统在逻辑与部署层面严格划分为三部分，实现计算密集与业务调度的解耦：
-
-```mermaid
-flowchart TD
-    subgraph Clients["多端交互层"]
-        WEB["WebClient (主力原型)"]
-        APP["MobileClient (移动原生)"]
-        WX["WxClient (轻量通道)"]
+flowchart TB
+    subgraph Clients["客户端交互层"]
+        MOBILE["MobileClient"]
+        WEB["WebClient"]
+        WX["WxClient"]
     end
 
-    subgraph BusinessPlatform["TrainPlatform 业务服务器 (常规 CPU / Linux)"]
-        API["统一 API 网关"]
-        SESSION["会话编排服务"]
-        STORAGE["集中样本存储"]
-        DECISION["日期语义与决策引擎"]
+    subgraph Platform["TrainPlatform 在线业务层"]
+        API["API 接入层"]
+        SESSION["会话编排层"]
+        ADAPTER["推理适配层"]
+        EVIDENCE["证据聚合层"]
+        DECISION["日期语义与标示状态决策层"]
+        ASSET["资产与纠偏管理层"]
     end
 
-    subgraph ComputeNode["GPU 独立计算节点 (算力工作站)"]
-        INFER["Inference Runtime (模型常驻 / 无状态前向推理)"]
-        TRAIN["ModelTrain (离线算法 / 消融实验 / 导出发布)"]
+    subgraph Runtime["Inference Runtime 推理运行时"]
+        PREPROCESS["输入预处理"]
+        DETECTOR["日期区域检测"]
+        OCR["局部 OCR"]
+        OBSERVATION["Observation 输出"]
     end
 
-    Clients -->|"HTTP 请求"| API
+    subgraph Assets["数据与模型资产层"]
+        BUSINESS["会话与业务元数据"]
+        IMAGES["受控图片资产"]
+        CORRECTIONS["纠偏记录与训练候选"]
+        MODEL["标准模型交付包"]
+    end
+
+    subgraph Research["离线算法研发层"]
+        TRAIN["ModelTrain<br/>训练、评测与模型导出"]
+    end
+
+    MOBILE --> API
+    WEB --> API
+    WX --> API
     API --> SESSION
-    SESSION --> STORAGE
-    SESSION --> DECISION
-    API -.->|"转发前向计算"| INFER
-    STORAGE -.->|"挂载样本数据"| TRAIN
-    TRAIN -.->|"交付标准化模型"| INFER
+    SESSION --> ADAPTER
+    ADAPTER --> PREPROCESS --> DETECTOR --> OCR --> OBSERVATION
+    OBSERVATION --> ADAPTER --> EVIDENCE --> DECISION --> SESSION
+    SESSION --> BUSINESS
+    SESSION --> IMAGES
+    DECISION --> ASSET
+    ASSET --> CORRECTIONS
+    CORRECTIONS -.质量审核后的训练候选.-> TRAIN
+    TRAIN -.标准模型交付包.-> MODEL
+    MODEL -.加载与校验.-> PREPROCESS
 ```
 
-- **TrainPlatform（业务中枢）**：部署于常规通用服务器，负责状态管理、数据库读写、会话协调与规则计算；
-- **Inference Runtime（推理运行时）**：常驻 GPU 内存，设计为纯无状态服务，仅接收图像输入并吐出标准观察值；
-- **ModelTrain（离线算法环境）**：独立于线上运行时，负责网络调优、消融实验与产物构建。
+Inference Runtime 不维护会话、不聚合多图证据、不计算 `marked_status` 或 `review_status`，也不直接向客户端输出业务结论。
 
----
+## 五、核心领域实体与数据流
 
-## 五、 三档渐进式部署拓扑
+```mermaid
+flowchart LR
+    SESSION["RecognitionSession<br/>识别会话"]
+    IMAGE["Image<br/>上传图像"]
+    OBS["Observation<br/>机器观察值"]
+    EVIDENCE["Evidence<br/>结构化证据"]
+    DECISION["Decision<br/>业务决策"]
+    CORRECTION["Correction<br/>人工修正"]
+    CANDIDATE["Training Candidate<br/>训练候选"]
 
-```plain
-一档：单机一体化研发模式 (当前阶段 · 满足 C0 原型验证与评测)
-  单台多核工作站
-  ┌────────────────────────────────────────────────────────┐
-  │ FastAPI 统一宿主进程                                    │
-  │ • 静态资源服务 (托管 WebClient 前端构建产物)            │
-  │ • 业务 API 网关与会话管理                              │
-  │ • 集中样本存储目录                                      │
-  │ • Inference Runtime (本地直接加载 ONNX 模型推理)         │
-  └────────────────────────────────────────────────────────┘
-
-二档：中心算力解耦模式 (推进阶段 · 支撑多端并发与协作)
-  业务中枢服务器 (云端 Linux 云主机 / CPU)       专用 GPU 算力工作站
-  ┌────────────────────────────────┐        ┌────────────────────────────┐
-  │ TrainPlatform 业务系统         │  HTTP  │ Inference Runtime 独立服务 │
-  │ • 客户端多图识别会话编排       ├──RPC──►│ • 独立常驻 GPU 内存        │
-  │ • 全量样本资产管理             │        │ • 批量推理与流水线调度     │
-  │ • 规则决策与复核中心           │        └────────────────────────────┘
-  └────────────────────────────────┘
-
-三档：端云协同混合计算模式 (远期探索 · 优化云端算力开销)
-  客户端移动设备 (MobileClient)             云端服务中枢与算力集群
-  ┌────────────────────────────────┐        ┌────────────────────────────┐
-  │ 端侧轻量模型 (TFLite / ONNX)   │ 低置信 │ 云端全精度大模型高精度重检 │
-  │ 本地高置信度直接离线呈现       ├──样本─►│ 多图深度证据关联与多源决策 │
-  │ 本地台账与临期提醒             │        └────────────────────────────┘
-  └────────────────────────────────┘
+    SESSION -->|"包含一张或多张"| IMAGE
+    IMAGE -->|"调用推理"| OBS
+    OBS -->|"语义提取与跨图聚合"| EVIDENCE
+    EVIDENCE -->|"日期规则与一致性校验"| DECISION
+    DECISION -.人工纠偏.-> CORRECTION
+    CORRECTION -->|"重新计算"| EVIDENCE
+    CORRECTION -.质量审核后.-> CANDIDATE
 ```
+
+`Observation` 是模型输出，`Evidence` 是平台提取的结构化事实，`Decision` 是依据证据和规则生成的包装标示状态。三者不应混用。
+
+## 六、在线运行时与离线研发边界
+
+```text
+ModelTrain
+  -> 离线训练、实验评测、模型导出
+  -> 标准模型交付包
+  -> Inference Runtime
+
+客户端
+  -> TrainPlatform
+  -> Inference Runtime
+  -> TrainPlatform
+  -> 客户端
+```
+
+线上请求不得直接调起训练任务，生产环境不得直接访问训练数据目录。线上纠偏记录只能经过审核后进入训练候选流程。
+
+```mermaid
+flowchart LR
+    D["Decision"] --> C["用户人工纠偏"]
+    C --> R["保存原始结果与修正值"]
+    R --> Q["质量审核"]
+    Q --> T["训练候选"]
+    T --> M["ModelTrain 离线实验"]
+    M --> V["评测与交付校验"]
+    V --> I["Inference Runtime 加载"]
+```
+
+纠偏记录不等于训练标签；新模型必须通过独立评测、版本登记和完整性校验后才能发布。
+
+## 七、部署形态
+
+标准部署采用业务平台与推理运行时分离的结构：
+
+```mermaid
+flowchart LR
+    CLIENTS["WebClient / MobileClient / WxClient"]
+    PLATFORM["TrainPlatform<br/>API、会话、决策、资产"]
+    RUNTIME["Inference Runtime<br/>模型加载与前向推理"]
+    STORAGE["受控资产存储"]
+    CLIENTS --> PLATFORM
+    PLATFORM --> RUNTIME
+    PLATFORM --> STORAGE
+```
+
+开发和验证阶段允许将业务平台与推理运行时部署在同一台机器上，但不改变调用边界。
+
+端云协同属于探索形态：
+
+```mermaid
+flowchart LR
+    MOBILE["MobileClient"]
+    EDGE["端侧模型<br/>候选 Observation"]
+    PLATFORM["TrainPlatform"]
+    DECISION["统一 Evidence / Decision"]
+    MOBILE --> EDGE
+    EDGE -.低置信度或需复核.-> PLATFORM
+    MOBILE --> PLATFORM
+    PLATFORM --> DECISION
+```
+
+端侧模型只能提供候选观察值或离线辅助结果。端侧高置信度不能自动替代统一业务决策。
+
+## 八、跨仓契约
+
+- [需求规格](REQUIREMENTS.md)
+- [接口契约](contracts/API.md)
+- [数据模型](contracts/DATA.md)
+- [模型交付规约](contracts/MODEL.md)
+- [数据质量规范](standards/DATA_QUALITY.md)
+
+客户端、业务平台、推理运行时和算法研发均应以这些契约为准，不通过实现细节建立跨仓依赖。
+
+## 九、架构边界
+
+本架构不强制规定：
+
+- GPU、云部署或微服务；
+- Python、Go 等具体实现语言；
+- 是否启用端侧模型；
+- 端侧结果、示例指标或线上纠偏是否直接替代服务端决策、实测结论或模型发布。
+
+架构真正稳定的承诺是客户端统一接入、推理与业务决策分离、模型标准化交付，以及 `Observation -> Evidence -> Decision` 数据流保持清晰。

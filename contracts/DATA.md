@@ -7,7 +7,7 @@
 
 ## 一、 样本资产元数据结构
 
-用于离线样本暂存库（`manifest.jsonl`）与服务端资产管理，每行对应一个独立的真实包装样本：
+`SampleAsset` 用于离线样本清单与受控资产管理，每行对应一个独立的真实包装样本。它不等同于在线会话中的 `Image`，在线图片只有经过质量审核后才能成为训练候选：
 
 ```json
 {
@@ -20,6 +20,7 @@
   "standard_date": "2024-05-18",
   "shelf_life_raw": "12个月",
   "shelf_life_days": 365,
+  "shelf_life_days_is_derived": true,
   "printing_tech": "inkjet_dot_matrix",
   "package_type": "can",
   "difficulty": "medium",
@@ -47,14 +48,14 @@
       "category": "date_area",
       "bbox": [120, 240, 210, 310],
       "confidence": 0.935,
-      "text": "20240518",
+      "transcription": "20240518",
       "text_confidence": 0.912,
       "character_confidences": [0.95, 0.94, 0.92, 0.91, 0.88, 0.90, 0.91, 0.89]
     }
   ],
   "global_texts": [
     {
-      "text": "保质期: 12个月",
+      "transcription": "保质期: 12个月",
       "confidence": 0.981
     }
   ],
@@ -70,7 +71,7 @@
 
 ## 三、 会话证据聚合与综合决策模型
 
-由业务中枢服务结合日历进位规则推导，输出给各客户端直接呈现的结构化判定结果：
+由业务中枢服务结合日历进位规则推导，输出给各客户端直接呈现的结构化判定结果。派生字段必须标记来源和规则版本：
 
 ```json
 {
@@ -93,8 +94,9 @@
       "is_derived": true
     }
   },
-  "missing_elements": [],
+  "missing_fields": [],
   "guidance": null,
+  "calculation_rule_version": "date-rules-v1",
   "warnings": [
     "包装标明开封后请于48小时内饮用完"
   ]
@@ -107,14 +109,14 @@
 
 ### 1. 标示期限状态
 - `WITHIN_MARKED_PERIOD`：标示在期内（距离到期时间充足）；
-- `APPROACHING_EXPIRY`：标示临期（距离到期日不足 30 天或总寿命 10%）；
+- `NEAR_EXPIRY`：标示临期（距离到期日不足 30 天或总寿命 10%）；
 - `PAST_MARKED_PERIOD`：标示已超期；
-- `CANNOT_DETERMINE`：暂无法判定（缺少核心事实）。
+- `UNDETERMINED`：暂无法判定（缺少核心事实）。
 
 ### 2. 证据复核状态
 - `EVIDENCE_COMPLETE`：证据完备（生产日期与保质期齐全且无冲突）；
-- `INCOMPLETE_INFO`：信息缺失（需用户补拍或手动补录）；
-- `CONFLICTING_EVIDENCE`：多处证据冲突（如不同部位打码日期不一致）；
+- `INFORMATION_MISSING`：信息缺失（需用户补拍或手动补录）；
+- `EVIDENCE_CONFLICT`：多处证据冲突（如不同部位打码日期不一致）；
 - `LOW_CONFIDENCE`：低置信度（打码严重磨损，需人工目视确认）。
 
 ### 3. 打码工艺类型

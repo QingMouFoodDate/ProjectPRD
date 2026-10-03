@@ -10,7 +10,7 @@
 ### 1. 模型格式与输入规格
 - **模型文件**：`qingmou_det.onnx`
 - **运行框架**：ONNX Runtime 1.15+（`opset 17`）；
-- **数据精度**：默认提供 FP32，可选配 INT8 量化版本；
+- **数据精度**：必选交付 FP32；FP16、INT8 等量化版本属于可选交付；
 - **输入张量**：`images: [1, 3, 640, 640]`，数据类型 `float32`；
 - **预处理归一化**：RGB 通道顺序，像素值除以 255.0 进行 `[0.0, 1.0]` 归一化。
 
@@ -28,7 +28,7 @@
 ### 1. 模型格式与输入规格
 - **模型文件**：`qingmou_rec.onnx`
 - **运行框架**：ONNX Runtime 1.15+（`opset 17`）；
-- **数据精度**：默认提供 FP32，可选配 INT8 量化版本；
+- **数据精度**：必选交付 FP32；FP16、INT8 等量化版本属于可选交付；
 - **输入张量**：`input: [1, 3, 32, 320]`，数据类型 `float32`；
 - **预处理约定**：保持高度为 32，沿宽度方向等比例缩放并在右侧进行对称白底 Padding 补齐，标准化为均值 0.5、方差 0.5。
 
@@ -56,8 +56,12 @@ release_bundle_v2/
 
 ### 模型元数据卡片示例
 
+以下数值仅用于说明字段结构，不代表当前项目实测结果：
+
 ```yaml
 model_version: "v2.0"
+bundle_version: "1"
+model_status: "candidate"
 created_at: "2026-10-02"
 detection:
   architecture: "YOLO-P2"
@@ -72,6 +76,25 @@ recognition:
   avg_latency_ms: 11.5
 environment:
   opset: 17
-  cuda_version: "12.1"
-  recommended_runtime: "onnxruntime-gpu>=1.15.0"
+  runtime: "onnxruntime"
+  min_version: "1.15.0"
+compatibility:
+  platforms: ["linux-x64", "android-arm64"]
+  clients: ["TrainPlatform", "MobileClient"]
+checksums:
+  qingmou_det.onnx: "<sha256>"
+  qingmou_rec.onnx: "<sha256>"
 ```
+
+检测模型和 OCR 模型只输出约定的机器观察值，不输出 `marked_status`、`review_status` 或食品安全结论。FP16、INT8 和其他端侧格式必须保留与基准 FP32 模型的评测对照。
+
+### 模型状态枚举
+
+`model_status` 只能使用以下值：
+
+- `candidate`：已导出但仍处于评测或审核阶段；
+- `validated`：已通过规定的输入输出、精度和兼容性检查；
+- `released`：已登记为可供运行时加载的发布版本；
+- `deprecated`：已被新版本替代，不应继续用于新部署。
+
+只有 `released` 状态的模型包可以被生产推理运行时加载。模型状态变化应保留版本、校验和、评测记录与变更原因。
