@@ -1,0 +1,513 @@
+{
+  "openapi": "3.1.0",
+  "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "info": {
+    "title": "轻眸识刻在线 API 候选契约",
+    "version": "api.v1-candidate",
+    "description": "候选机器契约，不证明服务已实现、部署或冻结。示例仅用于结构校验，不是模型实测结果，也不构成食品安全结论。",
+    "license": {
+      "name": "UNLICENSED - candidate contract only",
+      "identifier": "LicenseRef-UNLICENSED"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.invalid",
+      "description": "保留的无效占位域名；实施前必须替换为经批准的 HTTPS 地址，不表示服务已部署"
+    }
+  ],
+  "tags": [
+    { "name": "sessions", "description": "识别会话与单图 M0 主链路" },
+    { "name": "corrections", "description": "C0 后续字段级业务纠偏" },
+    { "name": "models", "description": "C3 端侧模型元数据预留" }
+  ],
+  "paths": {
+    "/api/v1/sessions": {
+      "post": {
+        "tags": ["sessions"],
+        "summary": "创建识别会话",
+        "description": "M0 候选端点。创建操作不要求已有会话令牌；Idempotency-Key 同时作为受控领取首次创建结果的操作标识，具体保留与限流策略须由实现验证。",
+        "operationId": "createSession",
+        "security": [],
+        "parameters": [
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateSessionRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "创建成功；session_token 仅在创建及其合法幂等重放时返回",
+            "headers": {
+              "Cache-Control": {
+                "description": "创建响应不得进入普通缓存",
+                "schema": { "type": "string", "const": "no-store" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreateSessionResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/images": {
+      "post": {
+        "tags": ["sessions"],
+        "summary": "上传图片并更新会话结果",
+        "description": "M0 每个会话只接受一张图片；C0 多图实施后才允许追加并重新聚合。成功返回完整 observation.v1、evidence.v1 与 decision.v1，Runtime 故障不得伪造为空检测成功。",
+        "operationId": "uploadSessionImage",
+        "security": [
+          { "sessionBearer": [] }
+        ],
+        "parameters": [
+          { "$ref": "#/components/parameters/SessionId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": { "$ref": "#/components/schemas/UploadImageRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "图片处理成功并原子更新当前 Evidence / Decision",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UploadImageResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "410": { "$ref": "#/components/responses/Gone" },
+          "413": { "$ref": "#/components/responses/PayloadTooLarge" },
+          "422": { "$ref": "#/components/responses/UnprocessableImage" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "502": { "$ref": "#/components/responses/InvalidInferenceOutput" },
+          "503": { "$ref": "#/components/responses/InferenceUnavailable" },
+          "504": { "$ref": "#/components/responses/InferenceTimeout" }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}": {
+      "get": {
+        "tags": ["sessions"],
+        "summary": "查询完整识别会话",
+        "description": "返回已存的完整会话安全视图，不返回 session_token，不按查询当天时钟静默重算历史 Decision。",
+        "operationId": "getSession",
+        "security": [
+          { "sessionBearer": [] }
+        ],
+        "parameters": [
+          { "$ref": "#/components/parameters/SessionId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "完整会话视图",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SessionResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "410": { "$ref": "#/components/responses/Gone" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/correction": {
+      "post": {
+        "tags": ["corrections"],
+        "summary": "提交字段级人工纠偏",
+        "description": "C0 后续候选端点。仅允许 correction.v1 的四类语义字段；原始 OCR 文本和检测框修正未在 v1 定义。成功后保存 Correction，并生成新的 Evidence / Decision；训练资格仍由 TrainPlatform 独立审核。",
+        "operationId": "createCorrection",
+        "security": [
+          { "sessionBearer": [] }
+        ],
+        "parameters": [
+          { "$ref": "#/components/parameters/SessionId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "./schemas/correction.v1.schema.json" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "业务纠偏已应用；PENDING_REVIEW 不等于训练候选已通过",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CorrectionResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "410": { "$ref": "#/components/responses/Gone" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/v1/models/latest": {
+      "get": {
+        "tags": ["models"],
+        "summary": "查询端侧 released 模型包元数据",
+        "description": "C3 预留端点，不是 M0 依赖。latest 表示满足授权和目标平台约束的 released 版本，不等于 InferPlatform 当前 active；会话令牌不会自动获得此权限。",
+        "operationId": "getLatestModelMetadata",
+        "security": [
+          { "modelMetadataBearer": [] }
+        ],
+        "parameters": [
+          {
+            "name": "target_platform",
+            "in": "query",
+            "required": true,
+            "description": "目标平台标识；只有通过真实兼容性验证的范围才能返回",
+            "schema": { "type": "string", "minLength": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "受控完整模型包元数据",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ModelMetadataResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "opaque session token",
+        "description": "创建会话返回的短期不透明 session_token；不得放入 URL、日志或分享内容。"
+      },
+      "modelMetadataBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "model metadata authorization",
+        "description": "与 M0 会话令牌分离的模型元数据读取授权；具体签发机制尚未冻结。"
+      }
+    },
+    "parameters": {
+      "SessionId": {
+        "name": "session_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string", "minLength": 1 },
+        "description": "识别会话 ID；知道 ID 不构成访问授权。"
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": { "type": "string", "minLength": 16, "maxLength": 256 },
+        "description": "不可预测且至少具备 128 位随机熵的操作键；同一业务操作重试复用原键。"
+      }
+    },
+    "responses": {
+      "BadRequest": { "$ref": "#/components/responses/Error400" },
+      "Unauthorized": { "$ref": "#/components/responses/Error401" },
+      "Forbidden": { "$ref": "#/components/responses/Error403" },
+      "NotFound": { "$ref": "#/components/responses/Error404" },
+      "Conflict": { "$ref": "#/components/responses/Error409" },
+      "Gone": { "$ref": "#/components/responses/Error410" },
+      "PayloadTooLarge": { "$ref": "#/components/responses/Error413" },
+      "UnprocessableImage": { "$ref": "#/components/responses/Error422" },
+      "TooManyRequests": { "$ref": "#/components/responses/Error429" },
+      "InternalError": { "$ref": "#/components/responses/Error500" },
+      "InvalidInferenceOutput": { "$ref": "#/components/responses/Error502" },
+      "InferenceUnavailable": { "$ref": "#/components/responses/Error503" },
+      "InferenceTimeout": { "$ref": "#/components/responses/Error504" },
+      "Error400": {
+        "description": "请求结构或图像内容无效",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "Error401": {
+        "description": "凭证缺失或无效",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "Error403": {
+        "description": "资源归属或授权范围不允许访问",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "Error404": {
+        "description": "资源不存在或没有满足条件的 released 模型包",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "Error409": {
+        "description": "幂等内容不一致、原操作仍在处理、状态冲突或 M0 图片数量限制",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "Error410": {
+        "description": "已验证归属的会话或操作已过期",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "Error413": {
+        "description": "上传文件超过候选资源上限",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "Error422": {
+        "description": "图像模糊、过曝或不满足候选质量门禁",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "Error429": {
+        "description": "请求被限流",
+        "headers": {
+          "Retry-After": {
+            "description": "建议重试等待时间，具体形式由实现确定",
+            "schema": { "type": "string" }
+          }
+        },
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "Error500": {
+        "description": "未预期服务异常",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "Error502": {
+        "description": "Runtime 输出版本、结构或语义非法",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "Error503": {
+        "description": "Runtime 不可用或没有可用 active 模型",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "Error504": {
+        "description": "Runtime 推理超时",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      }
+    },
+    "schemas": {
+      "CreateSessionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_type": { "type": "string", "enum": ["web", "mobile", "wx"], "default": "web" },
+          "notes": { "type": ["string", "null"], "description": "可选备注，不应包含不必要个人信息。" }
+        }
+      },
+      "CreateSessionResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/SuccessEnvelope" },
+          {
+            "type": "object",
+            "properties": { "data": { "$ref": "#/components/schemas/CreateSessionData" } }
+          }
+        ]
+      },
+      "CreateSessionData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["session_id", "session_token", "created_at", "status"],
+        "properties": {
+          "session_id": { "$ref": "#/components/schemas/Id" },
+          "session_token": { "type": "string", "minLength": 1, "writeOnly": true },
+          "created_at": { "$ref": "#/components/schemas/OffsetDateTime" },
+          "status": { "type": "string", "const": "AWAITING_INPUT" }
+        }
+      },
+      "UploadImageRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file"],
+        "properties": {
+          "file": { "type": "string", "format": "binary", "description": "可实际解码的 JPEG 或 PNG；候选上限 15,000,000 字节。" },
+          "image_role": { "type": ["string", "null"], "enum": ["macro_date", "packaging_full", "barcode", null] },
+          "auxiliary_barcode": { "type": ["string", "null"], "pattern": "^[0-9]{13}$" }
+        }
+      },
+      "UploadImageResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/SuccessEnvelope" },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["image_id", "observation", "evidence", "decision"],
+                "properties": {
+                  "image_id": { "$ref": "#/components/schemas/Id" },
+                  "observation": { "$ref": "./schemas/observation.v1.schema.json" },
+                  "evidence": { "$ref": "./schemas/evidence.v1.schema.json" },
+                  "decision": { "$ref": "./schemas/decision.v1.schema.json" }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "SessionResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/SuccessEnvelope" },
+          {
+            "type": "object",
+            "properties": { "data": { "$ref": "#/components/schemas/RecognitionSession" } }
+          }
+        ]
+      },
+      "RecognitionSession": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["session_id", "created_at", "status", "images", "observations", "evidence", "decision"],
+        "properties": {
+          "session_id": { "$ref": "#/components/schemas/Id" },
+          "created_at": { "$ref": "#/components/schemas/OffsetDateTime" },
+          "status": {
+            "type": "string",
+            "enum": ["AWAITING_INPUT", "RECEIVING_IMAGES", "PROCESSING", "PARTIAL_RESULT", "COMPLETED", "NEEDS_REVIEW", "FAILED", "EXPIRED"]
+          },
+          "images": { "type": "array", "items": { "$ref": "#/components/schemas/Image" } },
+          "observations": { "type": "array", "items": { "$ref": "./schemas/observation.v1.schema.json" } },
+          "evidence": { "anyOf": [{ "$ref": "./schemas/evidence.v1.schema.json" }, { "type": "null" }] },
+          "decision": { "anyOf": [{ "$ref": "./schemas/decision.v1.schema.json" }, { "type": "null" }] }
+        }
+      },
+      "Image": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["image_id", "session_id", "created_at", "width", "height", "image_role", "asset_url"],
+        "properties": {
+          "image_id": { "$ref": "#/components/schemas/Id" },
+          "session_id": { "$ref": "#/components/schemas/Id" },
+          "created_at": { "$ref": "#/components/schemas/OffsetDateTime" },
+          "width": { "type": "integer", "minimum": 1 },
+          "height": { "type": "integer", "minimum": 1 },
+          "image_role": { "type": ["string", "null"], "enum": ["macro_date", "packaging_full", "barcode", null] },
+          "asset_url": { "type": ["string", "null"], "format": "uri", "description": "受控 HTTPS URL 或 null；不得返回物理路径或永久公开地址。" }
+        }
+      },
+      "CorrectionResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/SuccessEnvelope" },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["correction_id", "decision_effect", "training_review_status", "evidence", "decision"],
+                "properties": {
+                  "correction_id": { "$ref": "#/components/schemas/Id" },
+                  "decision_effect": { "type": "string", "const": "APPLIED_TO_SESSION" },
+                  "training_review_status": { "type": "string", "const": "PENDING_REVIEW" },
+                  "evidence": { "$ref": "./schemas/evidence.v1.schema.json" },
+                  "decision": { "$ref": "./schemas/decision.v1.schema.json" }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ModelMetadataResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/SuccessEnvelope" },
+          {
+            "type": "object",
+            "properties": { "data": { "$ref": "#/components/schemas/ModelMetadata" } }
+          }
+        ]
+      },
+      "ModelMetadata": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["model_version", "bundle_version", "model_status", "manifest_sha256", "bundle_sha256", "target_platform", "compatibility", "files"],
+        "properties": {
+          "model_version": { "$ref": "#/components/schemas/Id" },
+          "bundle_version": { "type": "string", "const": "model-bundle.v1" },
+          "model_status": { "type": "string", "const": "released" },
+          "manifest_sha256": { "$ref": "#/components/schemas/Sha256" },
+          "bundle_sha256": { "$ref": "#/components/schemas/Sha256" },
+          "target_platform": { "$ref": "#/components/schemas/Id" },
+          "compatibility": { "type": "object", "description": "通过真实验证的 Runtime、opset、精度 Profile 与设备约束；具体字段冻结前补充版本化 Schema。" },
+          "files": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "size_bytes", "sha256", "download_url"],
+              "properties": {
+                "path": { "type": "string", "minLength": 1 },
+                "size_bytes": { "type": "integer", "minimum": 1 },
+                "sha256": { "$ref": "#/components/schemas/Sha256" },
+                "download_url": { "type": "string", "format": "uri" }
+              }
+            }
+          }
+        }
+      },
+      "SuccessEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message", "data", "request_id"],
+        "properties": {
+          "code": { "type": "integer", "const": 200 },
+          "message": { "type": "string" },
+          "data": {},
+          "request_id": { "$ref": "#/components/schemas/Id" }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message", "data", "request_id"],
+        "properties": {
+          "code": { "type": "integer" },
+          "message": { "type": "string" },
+          "data": { "type": "null" },
+          "request_id": { "$ref": "#/components/schemas/Id" }
+        }
+      },
+      "Id": { "type": "string", "minLength": 1 },
+      "OffsetDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})(?![\\s\\S])"
+      },
+      "Sha256": {
+        "type": "string",
+        "minLength": 71,
+        "maxLength": 71,
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      }
+    }
+  }
+}

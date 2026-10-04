@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Correction request v1 candidate",
+  "description": "候选字段级人工修正请求。仅修正日期、保质期和存储说明；原始 OCR 文字与检测框修正仍属 C0 规划，当前 v1 未定义。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "image_id",
+    "corrected_field",
+    "corrected_value",
+    "correction_reason"
+  ],
+  "properties": {
+    "schema_version": { "const": "correction.v1" },
+    "image_id": { "type": "string", "minLength": 1 },
+    "corrected_field": {
+      "enum": ["mfg_date", "exp_date", "shelf_life", "storage_condition"]
+    },
+    "corrected_value": {
+      "oneOf": [{ "type": "string" }, { "$ref": "#/$defs/shelfLife" }]
+    },
+    "correction_reason": { "type": "string", "minLength": 1, "pattern": "\\S" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "corrected_field": { "enum": ["mfg_date", "exp_date"] }
+        },
+        "required": ["corrected_field"]
+      },
+      "then": {
+        "properties": { "corrected_value": { "$ref": "#/$defs/date" } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "corrected_field": { "const": "shelf_life" } },
+        "required": ["corrected_field"]
+      },
+      "then": {
+        "properties": { "corrected_value": { "$ref": "#/$defs/shelfLife" } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "corrected_field": { "const": "storage_condition" } },
+        "required": ["corrected_field"]
+      },
+      "then": {
+        "properties": {
+          "corrected_value": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "date": {
+      "type": "string",
+      "format": "date",
+      "minLength": 10,
+      "maxLength": 10,
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "shelfLife": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unit"],
+      "properties": {
+        "value": { "type": "integer", "minimum": 1 },
+        "unit": { "enum": ["DAY", "MONTH", "YEAR"] }
+      }
+    }
+  }
+}

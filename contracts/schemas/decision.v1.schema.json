@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Decision v1 candidate",
+  "description": "候选契约，InferPlatform 业务层根据完整不可变 Evidence 与固定日期规则生成。snapshot 不是完整证据，不能替代重放输入。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "decision_id",
+    "session_id",
+    "marked_status",
+    "review_status",
+    "observed_at",
+    "generated_at",
+    "timezone",
+    "calculation_rule_version",
+    "evidence_schema_version",
+    "evidence_id",
+    "evidence_hash",
+    "evidence_snapshot",
+    "used_fact_ids",
+    "missing_fields",
+    "warnings",
+    "guidance"
+  ],
+  "properties": {
+    "schema_version": { "const": "decision.v1" },
+    "decision_id": { "$ref": "#/$defs/id" },
+    "session_id": { "$ref": "#/$defs/id" },
+    "marked_status": {
+      "enum": [
+        "WITHIN_MARKED_PERIOD",
+        "NEAR_EXPIRY",
+        "PAST_MARKED_PERIOD",
+        "UNDETERMINED"
+      ]
+    },
+    "review_status": {
+      "enum": [
+        "EVIDENCE_COMPLETE",
+        "INFORMATION_MISSING",
+        "EVIDENCE_CONFLICT",
+        "LOW_CONFIDENCE"
+      ]
+    },
+    "observed_at": { "$ref": "#/$defs/offsetDateTime" },
+    "generated_at": { "$ref": "#/$defs/offsetDateTime" },
+    "timezone": {
+      "type": "string",
+      "minLength": 1,
+      "description": "IANA 时区名，候选默认 Asia/Shanghai；有效性及偏移一致性须语义校验。"
+    },
+    "calculation_rule_version": { "const": "date-rules.v1" },
+    "evidence_schema_version": { "const": "evidence.v1" },
+    "evidence_id": { "$ref": "#/$defs/id" },
+    "evidence_hash": {
+      "type": "string",
+      "minLength": 71,
+      "maxLength": 71,
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "evidence_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mfg_date", "shelf_life", "exp_date", "exp_date_is_derived"],
+      "properties": {
+        "mfg_date": {
+          "anyOf": [{ "$ref": "#/$defs/date" }, { "type": "null" }]
+        },
+        "shelf_life": {
+          "anyOf": [{ "$ref": "#/$defs/shelfLife" }, { "type": "null" }]
+        },
+        "exp_date": {
+          "anyOf": [{ "$ref": "#/$defs/date" }, { "type": "null" }]
+        },
+        "exp_date_is_derived": { "type": ["boolean", "null"] }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "exp_date": { "type": "null" } },
+            "required": ["exp_date"]
+          },
+          "then": {
+            "properties": { "exp_date_is_derived": { "const": null } }
+          },
+          "else": {
+            "properties": { "exp_date_is_derived": { "type": "boolean" } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "exp_date_is_derived": { "const": true } },
+            "required": ["exp_date_is_derived"]
+          },
+          "then": {
+            "properties": {
+              "mfg_date": { "$ref": "#/$defs/date" },
+              "shelf_life": { "$ref": "#/$defs/shelfLife" },
+              "exp_date": { "$ref": "#/$defs/date" }
+            }
+          }
+        }
+      ]
+    },
+    "used_fact_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/id" }
+    },
+    "missing_fields": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "guidance": { "type": ["string", "null"] }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 1 },
+    "offsetDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})(?![\\s\\S])"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "minLength": 10,
+      "maxLength": 10,
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "shelfLife": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unit"],
+      "properties": {
+        "value": { "type": "integer", "minimum": 1 },
+        "unit": { "enum": ["DAY", "MONTH", "YEAR"] }
+      }
+    }
+  }
+}

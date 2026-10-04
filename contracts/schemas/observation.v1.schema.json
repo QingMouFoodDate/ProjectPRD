@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Observation v1 candidate",
+  "description": "候选契约，非运行代码。Runtime 生成不可变观察值；跨字段坐标、有限数与模型版本引用仍须语义校验。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "observation_id",
+    "image_id",
+    "model_version",
+    "generated_at",
+    "image_size",
+    "quality_passed",
+    "detections"
+  ],
+  "properties": {
+    "schema_version": { "const": "observation.v1" },
+    "observation_id": { "$ref": "#/$defs/id" },
+    "image_id": { "$ref": "#/$defs/id" },
+    "model_version": {
+      "type": "string",
+      "minLength": 1,
+      "not": { "enum": ["candidate", "validated", "released", "deprecated"] },
+      "description": "实际加载的模型包版本标识，不能用 model_status 冒充版本；版本与包清单的一致性由语义校验保证。"
+    },
+    "generated_at": { "$ref": "#/$defs/offsetDateTime" },
+    "image_size": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "quality_passed": { "type": ["boolean", "null"] },
+    "detections": { "type": "array", "items": { "$ref": "#/$defs/detection" } },
+    "quality_metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "blurriness_score": { "type": "number", "minimum": 0 },
+        "overexposure_ratio": { "$ref": "#/$defs/confidence" }
+      },
+      "description": "明确可选，无必需子字段；不意味着已有质量指标实现或阈值校准。"
+    },
+    "global_texts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["transcription", "confidence"],
+        "properties": {
+          "transcription": { "type": "string" },
+          "confidence": { "$ref": "#/$defs/nullableConfidence" }
+        }
+      },
+      "description": "明确可选，不作为 C0 前置依赖，不宣称全局 OCR 已实现。"
+    },
+    "barcode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "value", "confidence"],
+      "properties": {
+        "type": { "type": "string", "minLength": 1 },
+        "value": { "type": "string", "minLength": 1 },
+        "confidence": { "$ref": "#/$defs/nullableConfidence" }
+      },
+      "description": "明确可选；条码仅为辅助观察值，不自动提供或覆盖日期事实。"
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 1 },
+    "offsetDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})(?![\\s\\S])"
+    },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "nullableConfidence": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "detection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "box_id",
+        "category",
+        "bbox",
+        "bbox_format",
+        "coordinate_space",
+        "confidence",
+        "transcription",
+        "text_confidence"
+      ],
+      "properties": {
+        "box_id": { "$ref": "#/$defs/id" },
+        "category": { "const": "date_area" },
+        "bbox": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": { "type": "number", "minimum": 0 },
+          "description": "原图像素边界 [x1, y1, x2, y2]，可含小数。语义校验：0 <= x1 < x2 <= width 且 0 <= y1 < y2 <= height；所有坐标须有限。"
+        },
+        "bbox_format": { "const": "xyxy" },
+        "coordinate_space": { "const": "original_image" },
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "transcription": { "type": ["string", "null"] },
+        "text_confidence": { "$ref": "#/$defs/nullableConfidence" },
+        "character_confidences": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/confidence" },
+          "description": "明确可选。若提供，字符对齐方式须由实际解码器版本定义并测试，不推定已校准。"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Evidence v1 candidate",
+  "description": "候选契约，InferPlatform 业务层生成不可变证据。parser_version 必须关联不可变解析与置信策略配置；Schema 不校验跨实体引用或 JCS 哈希正确性。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evidence_id",
+    "session_id",
+    "generated_at",
+    "parser_version",
+    "facts",
+    "conflicts",
+    "missing_fields",
+    "evidence_hash"
+  ],
+  "properties": {
+    "schema_version": { "const": "evidence.v1" },
+    "evidence_id": { "$ref": "#/$defs/id" },
+    "session_id": { "$ref": "#/$defs/id" },
+    "generated_at": { "$ref": "#/$defs/offsetDateTime" },
+    "parser_version": { "$ref": "#/$defs/id" },
+    "facts": { "type": "array", "items": { "$ref": "#/$defs/fact" } },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["field", "fact_ids", "reason"],
+        "properties": {
+          "field": { "$ref": "#/$defs/field" },
+          "fact_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/id" }
+          },
+          "reason": { "type": "string", "minLength": 1, "pattern": "\\S" }
+        }
+      }
+    },
+    "missing_fields": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "evidence_hash": {
+      "type": "string",
+      "minLength": 71,
+      "maxLength": 71,
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "移除整个 Evidence 顶层 evidence_hash 后，按 RFC 8785/JCS 规范化为 UTF-8 字节，计算 SHA-256，编码为小写十六进制并加 sha256: 前缀。此处仅约束外形。"
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 1 },
+    "offsetDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})(?![\\s\\S])"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "minLength": 10,
+      "maxLength": 10,
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "field": {
+      "enum": ["mfg_date", "exp_date", "shelf_life", "storage_condition"]
+    },
+    "shelfLife": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unit"],
+      "properties": {
+        "value": { "type": "integer", "minimum": 1 },
+        "unit": { "enum": ["DAY", "MONTH", "YEAR"] }
+      }
+    },
+    "fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fact_id",
+        "field",
+        "value",
+        "raw_text",
+        "source_type",
+        "source_image_id",
+        "source_observation_id",
+        "source_box_id",
+        "source_correction_id",
+        "confidence",
+        "eligible_for_decision"
+      ],
+      "properties": {
+        "fact_id": { "$ref": "#/$defs/id" },
+        "field": { "$ref": "#/$defs/field" },
+        "value": {
+          "oneOf": [{ "type": "string" }, { "$ref": "#/$defs/shelfLife" }]
+        },
+        "raw_text": { "type": ["string", "null"] },
+        "source_type": { "enum": ["MODEL", "MANUAL"] },
+        "source_image_id": { "$ref": "#/$defs/id" },
+        "source_observation_id": { "type": ["string", "null"], "minLength": 1 },
+        "source_box_id": { "type": ["string", "null"], "minLength": 1 },
+        "source_correction_id": { "type": ["string", "null"], "minLength": 1 },
+        "confidence": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "eligible_for_decision": { "type": "boolean" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "field": { "enum": ["mfg_date", "exp_date"] } },
+            "required": ["field"]
+          },
+          "then": { "properties": { "value": { "$ref": "#/$defs/date" } } }
+        },
+        {
+          "if": {
+            "properties": { "field": { "const": "shelf_life" } },
+            "required": ["field"]
+          },
+          "then": { "properties": { "value": { "$ref": "#/$defs/shelfLife" } } }
+        },
+        {
+          "if": {
+            "properties": { "field": { "const": "storage_condition" } },
+            "required": ["field"]
+          },
+          "then": {
+            "properties": {
+              "value": { "type": "string", "minLength": 1, "pattern": "\\S" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "source_type": { "const": "MODEL" } },
+            "required": ["source_type"]
+          },
+          "then": {
+            "properties": {
+              "source_observation_id": { "$ref": "#/$defs/id" },
+              "source_correction_id": { "const": null }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "source_type": { "const": "MANUAL" } },
+            "required": ["source_type"]
+          },
+          "then": {
+            "properties": {
+              "source_correction_id": { "$ref": "#/$defs/id" },
+              "confidence": { "const": null }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
