@@ -1,248 +1,180 @@
 # 轻眸识刻系统总体架构
 
-> **文档定位**：已批准的职责设计、目标数据流与候选部署边界
-> **设计依据**：[ADR-001](decisions/ADR-001-REPOSITORY_BOUNDARIES.md)
-> **实施状态**：M0 待实现；模块图表示目标职责，不表示现有代码、已部署服务或生产契约冻结
+> 全域系统物理拓扑、在线与离线解耦边界、数据流模型与部署拓扑规范
+>
+> **设计依据**：[ADR-001 仓库职责边界与在线离线切分](decisions/ADR-001-REPOSITORY_BOUNDARIES.md) · 全域单一事实来源
+
+《轻眸识刻》面向食品流通与消费场景，负责精准识别食品包装上的生产日期与保质期文本，并基于法定日历规则推导包装标示状态。系统通过建立严格的物理边界与契约约束，实现“数据治理、算法研发、在线服务与多端呈现”的全链路解耦与工业级工程协同。
+
+---
 
 ## 一、系统定位与架构原则
 
-轻眸识刻面向食品流通与消费场景，负责识别包装日期并推导包装上的标示状态。系统不直接判断食品是否绝对安全或适宜食用。
+1. **法定对象受限**：系统输出法定限定为“食品包装标示状态”，严禁向用户直接断言食品是否绝对可食用或卫生安全结论。
+2. **在线离线严格解耦**：对外业务服务与对内模型生产物理分离，InferPlatform 独立负责在线会话与实时推导，TrainPlatform 专职负责样本资产治理与训练调度。
+3. **推理分层与独立运行时**：Inference Runtime 作为 InferPlatform 内部逻辑模块协同运行，仅输出客观机器感知值（Observation），不参与会话管理或业务状态决策。
+4. **算法研发只读消费**：ModelTrain 严格只读消费由 TrainPlatform 冻结的快照数据集，不擅自修改标注或切分，产出标准模型包（ModelBundle）交付审核。
+5. **数据闭环质量门禁**：线上人工纠偏数据即时驱动业务重算；但回流纳入离线训练资产必须通过独立质量审核与合规准入，严防标签污染。
+6. **核心流转主线**：数据流严格遵循 `Observation -> Evidence -> Decision` 标准化演进管线。
 
-核心原则：
+---
 
-1. 客户端负责交互，不直接访问数据库或模型文件；
-2. InferPlatform 负责会话编排、证据聚合和业务决策，对外服务全部客户端；
-3. Inference Runtime 是 InferPlatform 内部的推理运行时，只输出模型机器观察值；
-4. TrainPlatform 负责离线样本、数据集与切分、标注审核、训练调度、评测登记、模型注册及发布治理，不承接在线业务 API；
-5. ModelTrain 执行训练、评测与导出，只读 TrainPlatform 提供的冻结数据，不改标注、不重切分、不自行发布；
-6. `Observation -> Evidence -> Decision` 是目标数据处理主线，具体字段仍属候选契约；
-7. InferPlatform 接受业务纠偏后立即重算；训练资格由 TrainPlatform 独立审核，未审记录只可待审，不自动成为训练真值或改变线上模型。
+## 二、八仓物理拓扑与职责矩阵
 
-对外服务与对内生产是两条独立链路：InferPlatform 面向客户端请求，TrainPlatform 面向数据与算法工作。两者不得互相侵入职责。
+系统由 8 个职责单一、物理隔离的 Git 代码仓库构成，全域分工矩阵如下：
 
-## 二、八仓职责矩阵
-
-| 仓库 | 目标职责 | 边界与当前范围 |
+| 仓库名称 | 物理定位 | 核心架构职责 |
 | :--- | :--- | :--- |
-| `.github` | 组织公共说明与协作入口 | 不承载业务、训练数据或模型注册服务 |
-| `ProjectPRD` | 需求、架构、ADR、候选契约和质量规范 | 文档中枢，不提供可运行产品 |
-| `TrainPlatform` | 离线样本、数据集、标注审核、训练调度、评测登记、模型注册及发布治理 | 拥有训练资格审核与 register/validate/release；M0 不要求完整平台实现 |
-| `ModelTrain` | 数据适配、训练、评测与模型导出执行 | 只读冻结数据；输出模型包及评测产物给 TrainPlatform，不直达线上发布 |
-| `InferPlatform` | 在线业务 API、会话、资产、编排、Evidence、日期 Decision、业务纠偏 | 内部 runtime 加载模型、检测、OCR，仅产 Observation；控制 activate/rollback |
-| `WebClient` | 在线识别、结果展示、证据查看与人工纠偏交互 | M0 为单图基础展示；多图与完整交互属后续 C0 |
-| `MobileClient` | 移动在线识别与设备增强的候选客户端 | 保留仓名与目标职责，暂停实现，不合并 |
-| `WxClient` | 免安装查验、大字展示与微信分享的候选客户端 | 保留仓名与目标职责，暂停实现，不合并 |
+| **.github** | 组织全局配置 | 维护组织公开主页、全域工程导航与统一开源规范 |
+| **ProjectPRD** | 全域规范中枢 | 维护全系统需求池、架构设计、跨仓契约、质量规范与决策记录（SSOT） |
+| **InferPlatform** | 在线服务中枢 | 承接多端 API、会话生命周期编排、内部推理适配、证据聚合与即时决策 |
+| **TrainPlatform** | 训练治理中枢 | 负责受控样本准入、数据集版本冻结、标注审核留痕与模型发布门禁 |
+| **ModelTrain** | 算法研发中心 | 负责日期定位网络与微型 OCR 算法攻关、消融评测与标准模型包导出 |
+| **WebClient** | Web 原型系统 | 大创核心交付物，拉通 M0 单图主链路验证，呈现原图覆层与字段卡片 |
+| **MobileClient** | 移动端客户端 | 规划现场拍摄手持稳态检测、微距对焦引导与离线食品台账设计储备 |
+| **WxClient** | 微信小程序端 | 规划长辈大字关怀模式、免安装即开即用通道与社交卡片设计储备 |
 
-八仓原名保留，旧版职责描述弃用；不新增 Data、Registry、Gateway 或 Runtime 仓。数据治理与模型注册是 TrainPlatform 模块，API 接入和 runtime 是 InferPlatform 模块，不因模块命名引入独立仓或服务。
+---
 
-## 三、客户端关系
+## 三、多端客户端协同架构
 
 ```mermaid
 flowchart LR
-    MOBILE["MobileClient 候选移动端 暂停实现"]
-    WEB["WebClient M0 单图原型待实现"]
-    WX["WxClient 候选微信入口 暂停实现"]
+    MOBILE["MobileClient 移动端扩展"]
+    WEB["WebClient 通用基础端"]
+    WX["WxClient 微信生态入口"]
 
-    MOBILE -.覆盖并扩展.-> WEB
-    WX -.提供替代入口.-> WEB
-    WX -.复杂任务可转入.-> MOBILE
+    MOBILE -.能力覆盖与移动增强.-> WEB
+    WX -.免安装轻量替代通道.-> WEB
+    WX -.复杂任务引导流转.-> MOBILE
 ```
 
-上图只描述目标关系：MobileClient 计划覆盖 WebClient 在线能力并增加设备增强；WxClient 面向免安装、临时查验、长辈使用和分享，不要求覆盖全部能力。两者暂停实现，既不是已具备能力，也不成为 M0 依赖。消费者查验与巡检人员批量检查场景保留，批量和多图不进入 M0。
+- **WebClient**：作为不依赖特定移动操作系统的桌面与通用大屏基准端，优先验证 M0 单图全闭环；
+- **MobileClient**：规划在 Web 在线查验能力基础上，利用移动设备传感器提供手持防抖与离线队列支持；
+- **WxClient**：针对低使用门槛场景，提供长辈大字阅读与免安装查验通道，形成全场景覆盖合力。
 
-## 四、逻辑分层架构
+---
+
+## 四、全域分层架构与数据交互流
 
 ```mermaid
 flowchart TB
-    subgraph Clients["客户端交互层"]
-        MOBILE["MobileClient"]
-        WEB["WebClient"]
-        WX["WxClient"]
+    subgraph Clients["多端呈现层"]
+        WEB["WebClient (M0 核心原型)"]
+        MOBILE["MobileClient (移动设计储备)"]
+        WX["WxClient (微信设计储备)"]
     end
 
-    subgraph Platform["InferPlatform 在线业务层"]
-        API["API 接入层"]
-        SESSION["会话编排层"]
-        ADAPTER["推理适配层"]
-        EVIDENCE["证据聚合层"]
-        DECISION["日期语义与标示状态决策层"]
-        ASSET["资产与纠偏管理层"]
+    subgraph OnlinePlatform["InferPlatform 在线业务层"]
+        API["统一 API 网关与鉴权"]
+        SESSION["识别会话生命周期编排"]
+        ADAPTER["推理适配与结果映射"]
+        EVIDENCE_AGG["证据提取与跨图聚合"]
+        DECISION_ENG["法定日期规则推导引擎"]
+        ASSET_MGR["临时图像资产与纠偏处理"]
     end
 
-    subgraph Runtime["InferPlatform 内部 runtime 模块"]
-        LOAD["已发布模型加载与校验"]
-        PREPROCESS["输入预处理"]
-        DETECTOR["日期区域检测"]
-        OCR["局部 OCR"]
-        OBSERVATION["Observation 输出"]
+    subgraph RuntimeEngine["Inference Runtime 模块"]
+        LOADER["模型包校验与热加载"]
+        PRE["图像标准化与几何校正"]
+        DET["小目标日期区域检测"]
+        REC["局部微型文本 OCR 识别"]
+        OBS["机器观察值生成 (Observation)"]
     end
 
-    subgraph Assets["数据与模型资产层"]
-        BUSINESS["会话与业务元数据"]
-        IMAGES["受控图片资产"]
-        CORRECTIONS["在线纠偏与待审难例"]
-        MODEL["标准模型交付包"]
+    subgraph OfflinePlatform["TrainPlatform 离线治理层"]
+        SAMPLE_GOV["样本合规准入与许可审计"]
+        DATA_FREEZE["防泄漏分组切分与版本冻结"]
+        JOB_DISPATCH["单机训练作业调度与监控"]
+        RELEASE_GATE["模型血缘登记与发布门禁"]
     end
 
-    subgraph Offline["TrainPlatform 离线治理层"]
-        SAMPLES["来源许可与离线样本"]
-        DATASET["标注审核与冻结数据集"]
-        SCHEDULE["训练任务调度"]
-        REGISTER["评测登记与模型发布治理"]
+    subgraph ResearchEngine["ModelTrain 算法研发层"]
+        ALGO_EXEC["算法训练、消融实验与标准化导出"]
     end
 
-    subgraph Research["ModelTrain 执行层"]
-        TRAIN["训练、评测与导出 只读冻结数据"]
-    end
-
-    MOBILE --> API
     WEB --> API
+    MOBILE --> API
     WX --> API
     API --> SESSION
     SESSION --> ADAPTER
-    ADAPTER --> PREPROCESS --> DETECTOR --> OCR --> OBSERVATION
-    OBSERVATION --> ADAPTER --> EVIDENCE --> DECISION --> SESSION
-    SESSION --> BUSINESS
-    SESSION --> IMAGES
-    DECISION --> ASSET
-    ASSET --> CORRECTIONS
-    CORRECTIONS -.授权回流与独立审核.-> SAMPLES
-    SAMPLES --> DATASET --> SCHEDULE --> TRAIN
-    DATASET -.只读冻结输入.-> TRAIN
-    TRAIN --> REGISTER
-    REGISTER -.release 后可交付.-> MODEL
-    MODEL -.Infer 控制 activate 或 rollback.-> LOAD
-    LOAD --> PREPROCESS
+    ADAPTER --> PRE --> DET --> REC --> OBS
+    OBS --> ADAPTER --> EVIDENCE_AGG --> DECISION_ENG --> SESSION
+    SESSION --> ASSET_MGR
+    ASSET_MGR -.待审纠偏回流.-> SAMPLE_GOV
+    SAMPLE_GOV --> DATA_FREEZE --> JOB_DISPATCH --> ALGO_EXEC
+    DATA_FREEZE -.只读冻结数据输入.-> ALGO_EXEC
+    ALGO_EXEC --> RELEASE_GATE
+    RELEASE_GATE -.发布授权交付.-> LOADER
+    LOADER --> PRE
 ```
 
-runtime 的模型加载、预处理、检测、局部 OCR 和 Observation 输出都是 InferPlatform 内部模块；图中的逻辑分组不是独立仓库或强制服务拆分。runtime 不维护会话、不聚合多图证据、不计算 `marked_status` 或 `review_status`，也不直接向客户端输出业务结论。P2 检测头、受限字典 OCR、全局文本与条码感知均不因模块图而成为既定生产方案。
+---
 
-## 五、核心领域实体与数据流
+## 五、核心领域实体与演进管线
+
+系统严格遵循不可篡改与分层派生的数据实体流转范式：
 
 ```mermaid
 flowchart LR
-    SESSION["RecognitionSession 识别会话"]
-    IMAGE["Image 上传图像"]
-    OBS["Observation 机器观察值"]
-    EVIDENCE["Evidence 结构化证据"]
-    DECISION["Decision 包装标示状态"]
-    CORRECTION["Correction 人工修正"]
-    REVIEW["TrainPlatform 独立训练资格审核"]
+    SESSION["RecognitionSession<br/>识别会话单元"]
+    IMAGE["Image<br/>受控图像资产"]
+    OBS["Observation<br/>机器原生观察值"]
+    EVIDENCE["Evidence<br/>结构化事实证据"]
+    DECISION["Decision<br/>包装标示决策"]
+    CORRECTION["Correction<br/>字段级人工纠偏"]
+    REVIEW["TrainPlatform<br/>训练质量审核"]
     CANDIDATE["已审核训练候选"]
 
     SESSION -->|"包含一张或多张"| IMAGE
     IMAGE -->|"调用推理"| OBS
-    OBS -->|"语义提取与跨图聚合"| EVIDENCE
-    EVIDENCE -->|"日期规则与一致性校验"| DECISION
-    DECISION -.人工纠偏.-> CORRECTION
-    CORRECTION -->|"业务接受后立即重算"| EVIDENCE
-    CORRECTION -.获授权的待审回流.-> REVIEW
-    REVIEW -.审核通过.-> CANDIDATE
+    OBS -->|"语义抽取与聚合"| EVIDENCE
+    EVIDENCE -->|"日历规则计算"| DECISION
+    DECISION -.人工修正.-> CORRECTION
+    CORRECTION -->|"业务即时重算"| EVIDENCE
+    CORRECTION -.受控归集回流.-> REVIEW
+    REVIEW -.质检通过.-> CANDIDATE
 ```
 
-`Observation` 保存机器检测框、OCR 原文及置信度；`Evidence` 保存平台结构化事实、图像或人工来源、派生标记；`Decision` 保存规则版本、参考时间与双维状态。原始 Observation 不被纠偏或语义推导覆盖。M0 仅使用一张输入图；跨图聚合与完整 Correction 审核闭环为后续 C0。
+- **Observation**：保存机器原生检测框、置信度与识别文本，归档后绝对只读；
+- **Evidence**：保存经业务层提取的结构化生产日期、到期日与保质期事实，附带置信度与派生来源；
+- **Decision**：依据法定日期规则计算得出的最终业务结论，包含包装标示状态与独立复核指引；
+- **Correction**：追加式的人工纠偏记录，被系统接受后即时驱动新版本 Evidence 与 Decision 生成，不覆写原机器 Observation。
 
-## 六、在线运行时与离线研发边界
+---
 
-```text
-TrainPlatform
-  -> 审核并冻结数据、调度任务
-  -> ModelTrain 只读执行训练、评测、导出
-  -> TrainPlatform 评测登记、register、validate、release
-  -> InferPlatform 决定 activate 或 rollback
-  -> 内部 runtime 校验并执行模型版本切换
+## 六、三档部署拓扑规范
 
-客户端
-  -> InferPlatform
-  -> Inference Runtime
-  -> InferPlatform
-  -> 客户端
-```
+系统架构具备极高的部署弹性，可根据硬件条件与应用规模平滑演进：
 
-线上请求不得直接调起训练任务，生产运行时不得直接读取训练集。业务纠偏的生效不等待训练审核；训练接纳必须独立审核来源许可、标签与防泄漏切分。ModelTrain 不拥有线上部署控制权。
+### 1. 单机联合部署拓扑
 
-```mermaid
-flowchart LR
-    D["Decision"] --> C["用户人工纠偏"]
-    C --> R["InferPlatform 保存原值与修正"]
-    R --> B["立即重算 Evidence 与 Decision"]
-    R -.授权回流.-> Q["TrainPlatform 独立审核"]
-    Q --> T["冻结训练版本"]
-    T --> M["ModelTrain 只读执行"]
-    M --> V["TrainPlatform 评测登记与发布治理"]
-    V --> A["InferPlatform 激活或回滚控制"]
-    A --> I["内部 runtime 执行版本切换"]
-```
+面向开发调试、学术复现与 M0 阶段的最小可用部署模式：
+- `WebClient` 构建为静态资源，由 Nginx 或 FastAPI 直接托管；
+- `InferPlatform` 与内置 `runtime` 运行于单台工作站（配备单张消费级 GPU）；
+- `TrainPlatform` 与 `ModelTrain` 通过本地命令行与单机脚本按需调度；
+- 所有持久化数据基于本地 SQLite 与受控文件目录存储。
 
-纠偏记录不等于训练标签；拒绝或未审记录不得进入冻结训练集。候选治理动作如下，具体接口与权限待训练和模型契约冻结：
+### 2. 微服务解耦部署拓扑
 
-| 动作 | 责任方 | 约束 |
-| :--- | :--- | :--- |
-| `register` | TrainPlatform | 登记模型包、数据版本、任务与评测血缘 |
-| `validate` | TrainPlatform | 治理质量与兼容性校验，ModelTrain 提供执行结果，不自行批准 |
-| `release` | TrainPlatform | 批准可交付版本，不自动替换线上模型 |
-| `activate` | InferPlatform 控制，内部 runtime 执行 | 仅切换至获发布资格且兼容的模型，记录版本与结果 |
-| `rollback` | InferPlatform 控制，内部 runtime 执行 | 切回明确、兼容的已发布版本，保留原因与审计记录 |
+面向多用户并发查验与自动化实验评估的标准部署模式：
+- 前端静态站点托管至独立 CDN 或静态 Web 服务器；
+- `InferPlatform` 作为高可用无状态 API 集群运行，挂载 Redis 管理会话状态；
+- `Inference Runtime` 作为专用推理 Worker 独立部署，支持利用 Triton 或多卡 GPU 扩展吞吐；
+- `TrainPlatform` 作为后台管理服务，调度可信计算节点上的 `ModelTrain` 容器化作业；
+- 元数据存储于 PostgreSQL，样本资产存储于私有对象存储。
 
-模型包通过完整性校验不等于效果达标；发布也不等于线上激活。上述是已批准的职责边界，不声明这些治理功能已经实现。
+### 3. 边缘轻量探索拓扑
 
-## 七、部署形态
+面向 C3 远期移动端探索的混合拓扑模式：
+- 移动端（`MobileClient`）通过 ONNX Runtime Mobile 或移动芯片 NPU 加载经量化导出的轻量模型，在无网环境下执行初筛识别；
+- 联网状态下自动将弱网任务同步至云端 `InferPlatform` 执行高精度复核与决策校验。
 
-候选部署保持业务与 runtime 逻辑分离，不强制进程或机器分离：
+---
 
-```mermaid
-flowchart LR
-    CLIENTS["WebClient / MobileClient / WxClient"]
-    PLATFORM["InferPlatform 业务模块"]
-    RUNTIME["InferPlatform 内部 runtime 模块"]
-    STORAGE["受控资产存储"]
-    CLIENTS --> PLATFORM
-    PLATFORM --> RUNTIME
-    PLATFORM --> STORAGE
-```
+## 七、权威依据与参考文档
 
-开发和验证阶段允许将业务平台与推理运行时部署在同一台机器上，但不改变调用边界。
-
-端云协同属于探索形态：
-
-```mermaid
-flowchart LR
-    MOBILE["MobileClient"]
-    EDGE["端侧模型 候选 Observation"]
-    PLATFORM["InferPlatform"]
-    DECISION["统一 Evidence / Decision"]
-    MOBILE --> EDGE
-    EDGE -.低置信度或需复核.-> PLATFORM
-    MOBILE --> PLATFORM
-    PLATFORM --> DECISION
-```
-
-端侧是 C3 储备，不属于 M0。端侧模型只能提供候选观察值或离线辅助结果，高置信度不能自动替代统一业务决策。暂停的客户端不意味着另建端侧仓库。
-
-## 八、跨仓契约
-
-- [需求规格](REQUIREMENTS.md)
-- [接口契约](contracts/API.md)
-- [数据模型](contracts/DATA.md)
-- [日期规则候选](contracts/DATE_RULES.md)
-- [模型交付候选](contracts/MODEL.md)
-- [训练契约候选](contracts/TRAINING.md)
-- [OpenAPI 3.1 候选](contracts/openapi.json)
-- [Observation JSON Schema](contracts/schemas/observation.v1.schema.json)
-- [Evidence JSON Schema](contracts/schemas/evidence.v1.schema.json)
-- [Decision JSON Schema](contracts/schemas/decision.v1.schema.json)
-- [Correction JSON Schema](contracts/schemas/correction.v1.schema.json)
-- [数据质量规范](standards/DATA_QUALITY.md)
-
-人工契约和机器契约均已进入候选评审，不因文件存在、结构校验通过或链接有效而成为生产规范或验收成果。跨仓通过版本化契约与模型包协作，不直接依赖另一仓实现、可变训练资产或私有路径。
-
-## 九、架构边界
-
-本架构不强制规定：
-
-- GPU、云部署或微服务；
-- Python、Go 等具体实现语言；
-- 是否启用端侧模型；
-- 端侧结果、示例指标或线上纠偏是否直接替代服务端决策、实测结论或模型发布。
-
-已批准的是八仓保留、在线离线职责隔离、内部 runtime 与业务决策分离，以及清晰的数据流。原仓名保留、旧版职责弃用；迁移按文档 -> 代码 -> 测试 -> CI 执行，不自动重写历史，也不因本次文档决议宣布各仓代码已迁移。
+- **需求池与非目标**：[ProjectPRD/REQUIREMENTS.md](REQUIREMENTS.md)
+- **跨仓技术契约**：[contracts/API.md](contracts/API.md) · [contracts/DATA.md](contracts/DATA.md) · [contracts/openapi.json](contracts/openapi.json)
+- **规则与执行契约**：[contracts/DATE_RULES.md](contracts/DATE_RULES.md) · [contracts/MODEL.md](contracts/MODEL.md) · [contracts/TRAINING.md](contracts/TRAINING.md)
+- **架构决策记录**：[decisions/ADR-001-REPOSITORY_BOUNDARIES.md](decisions/ADR-001-REPOSITORY_BOUNDARIES.md)
