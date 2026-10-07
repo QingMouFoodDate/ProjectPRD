@@ -1,100 +1,91 @@
 # 轻眸识刻设计与文档中枢
 
-> **项目名称**：轻眸识刻——基于小目标驱动的食品包装日期智能识别系统  
-> **组织归属**：`QingMouFoodDate` GitHub 协作组织  
-> **本仓定位**：需求、架构、候选跨仓契约与质量标准的文档中枢
-> **设计状态**：八仓职责推荐方案已批准，正式记录于 [ADR-001](decisions/ADR-001-REPOSITORY_BOUNDARIES.md)
-> **实现状态**：M0 待实现；本文不声明功能已上线、指标已达成或生产契约已冻结
+> 面向全域系统规范、需求池、跨仓技术契约与质量标准的单一事实来源
+>
+> **工程状态**：八仓职责架构已批准 · 正式载入 ADR-001 · M0 核心原型推进中
+
+ProjectPRD 作为轻眸识刻全域工程的“设计与规范中枢”，统筹管理产品需求池（REQUIREMENTS）、技术架构设计（ARCHITECTURE）、跨仓通信与数据契约（contracts）、科研实验规范（RESEARCH）以及全周期推进路线（ROADMAP）。全域代码仓库的接口实现、数据校验与开发行为均以此仓为唯一事实来源（SSOT）。
 
 ---
 
-## 一、 权威依据
+## 一、权威依据与目标分级
 
-项目核心目标以立项申报书为准，答辩材料用于说明技术主线，演进论证材料仅作为远期规划参考。C0 是核心最终目标；C1 为增强、C2 为实验、C3 为储备，均不作为 M0 交付承诺。设计批准、功能实现和验收通过是不同事实，不能互相替代。
+项目核心承诺严格以立项申报书为最高准绳，答辩材料阐明技术主线，论证演进材料作为远期技术储备：
 
----
-
-## 二、 稳定产品定位
-
-系统围绕真实图像采集、日期区域定位、字符识别、包装标示状态推导和人工纠偏建立边界，只推导包装标示状态，不判断食品绝对安全或是否适宜食用。P2 检测头与受限字典 OCR 仅为研究候选，不是既定生产实现。
-
-保留现有八仓：`.github`、`ProjectPRD`、`TrainPlatform`、`ModelTrain`、`InferPlatform`、`WebClient`、`MobileClient`、`WxClient`。TrainPlatform 管理离线数据与模型发布治理，ModelTrain 执行训练评测导出且只读冻结数据，InferPlatform 管理在线业务与内部 runtime。MobileClient、WxClient 暂停实现，不合并、不删除、不改名，也不新增 Data、Registry、Gateway、Runtime 仓。
-
-首个里程碑 M0 是待实现的 C0 单图切片：Web 上传单图 -> 检测与 OCR Observation -> Evidence -> 日期 Decision -> 基础展示。多图会话、完整展示与纠偏审核保留为后续 C0 目标；MobileClient、WxClient、端侧推理和训练平台完整实现不属于 M0。详见 [需求规格](REQUIREMENTS.md) 与 [路线图](ROADMAP.md)。
+- **C0 核心目标**：单图与多图会话流、日期小目标检测、微型字符 OCR、标示状态推导与人工纠偏闭环，为系统最终验收基准；
+- **C1 增强扩展**：复杂包装形变自适应、局部图像增强与条码弱辅助对齐；
+- **C2/C3 远期储备**：移动端传感器防抖辅助、适老化大字关怀模式与端侧轻量化推理探索；
+- **M0 优先验证**：作为 C0 的单图主链路切片，优先拉通端到端识别与验证闭环。
 
 ---
 
-## 三、 中枢文档导航
+## 二、产品稳定定位与法定边界
 
-建议按以下顺序阅读：
+系统聚焦于食品包装日期的智能视觉识别与语义推导，产品核心边界法定限定为**包装标示状态推导**：
 
-1. `README.md`：了解项目定位、权威依据和文档边界；
-2. `REQUIREMENTS.md`：了解产品范围、能力分级和非目标；
-3. `ARCHITECTURE.md`：了解仓库职责、系统分层和核心数据流；
-4. `decisions/`：了解已批准的仓库职责设计决议；
-5. `contracts/`：了解待评审、待实现的跨仓契约；
-6. `RESEARCH.md`：了解算法基线、中性研究问题和评估指标；
-7. `standards/`：了解数据质量和工程协作要求；
-8. `ROADMAP.md`：查看 M0 切片、后续阶段和验收门禁。
-
-跨仓协作先对齐需求与 ADR，再评审契约。现有契约中的强制措辞、接口示例、模型形状和数值不代表生产冻结、已支持功能或实测结果；冲突应在后续契约修订中解决，不能据此声称当前实现完成。未提供可追溯验收链接的需求只标为 `Planned` 或 `Proposed`。
-
-| 文档定位 | 文档路径 | 核心内容概述 |
-| :--- | :--- | :--- |
-| **产品与架构** | [`REQUIREMENTS.md`](REQUIREMENTS.md)、[`ARCHITECTURE.md`](ARCHITECTURE.md) | 产品边界、系统分层、仓库职责和非目标 |
-| **设计决议** | [ADR-001](decisions/ADR-001-REPOSITORY_BOUNDARIES.md) | 八仓保留、职责划分与迁移顺序 |
-| **跨仓契约** | [`contracts/`](contracts/) | 候选 API、数据模型、日期规则、模型与训练约束 |
-| **研发与推进** | [`RESEARCH.md`](RESEARCH.md)、[`ROADMAP.md`](ROADMAP.md) | 科研假设、评估指标和内部推进参考 |
-| **质量与协作** | [`standards/`](standards/) | 数据质量、命名、提交和工程协作规范 |
+1. **法定对象受限**：系统仅对包装上客观印刷/喷印的文本内容进行检测识别与日历规则计算，严禁向用户直接断言食品是否绝对可食用或卫生安全结论；
+2. **稳定八仓矩阵**：全系统严格划分为 8 个职责明确的独立代码仓库，不随意新增、合并或更名仓库；
+3. **在线离线严格解耦**：InferPlatform 专职负责在线 API 与实时推理，TrainPlatform 专职负责样本资产治理与训练调度，ModelTrain 专职负责算法网络实现。
 
 ---
 
-## 四、 仓库目录架构导航
+## 三、中枢文档阅读指引
+
+建议研发成员与代码审查者按以下推荐顺序深入阅读：
+
+1. [`README.md`](README.md)：系统全貌、权威依据与文档导航；
+2. [`REQUIREMENTS.md`](REQUIREMENTS.md)：C0~C3 产品需求池与明确非目标；
+3. [`ARCHITECTURE.md`](ARCHITECTURE.md)：八仓物理拓扑、在线/离线解耦与数据流向模型；
+4. [`decisions/ADR-001-REPOSITORY_BOUNDARIES.md`](decisions/ADR-001-REPOSITORY_BOUNDARIES.md)：八仓职责划分与边界决策记录；
+5. [`contracts/`](contracts/)：跨仓通信 API、数据模型、法定日期规则与模型交付规约；
+6. [`RESEARCH.md`](RESEARCH.md)：算法研究基线、H1~H8 中性消融假设与评测口径；
+7. [`standards/`](standards/)：真实数据质量门禁与全域工程协作规范；
+8. [`ROADMAP.md`](ROADMAP.md)：M0 准入准出标准与各阶段演进路线。
+
+---
+
+## 四、仓库目录架构导航
 
 ```text
 ProjectPRD/
-├── README.md                      # 项目定位、权威来源与文档导航
-├── REQUIREMENTS.md                # 产品层单一事实来源：C0-C3短规格需求池与非目标
+├── contracts/                     # 跨仓接口与模型格式契约目录
+│   └── schemas/                  # 机器校验数据结构定义目录
+├── decisions/                     # 架构决策记录目录
+├── standards/                     # 研发质量与数据规范约束目录
+├── README.md                      # 中枢定位、权威依据与文档导航
+├── REQUIREMENTS.md                # 产品层单一事实来源短规格需求池
 ├── ARCHITECTURE.md                # 八仓职责、在线离线边界与部署候选
-├── RESEARCH.md                    # 基线、H1-H8中性研究问题与指标口径
-├── ROADMAP.md                     # 时间与交付推进表：阶段里程碑、依赖关系与准入条件
-├── decisions/                     # 已批准的设计决议与迁移边界
-├── contracts/                     # API、数据、日期、模型、训练与机器契约候选
-└── standards/                     # 系统质量标准与工程协作规范目录
-    ├── DATA_QUALITY.md            # 数据真实性、标注质量与质量门禁
-    └── ENGINEERING.md             # 命名、分支、提交、文档与测试规范
+├── RESEARCH.md                    # 算法基线与中性消融实验设计指南
+└── ROADMAP.md                     # 阶段里程碑推进与准入准出规约
 ```
 
 ---
 
-## 五、 工程协作原则
+## 五、全域候选契约导航
 
-1. 仓库职责按 ADR 执行，具体生产字段、规则和接口须在契约评审后冻结；
-2. 模型 `register / validate / release` 由 TrainPlatform 治理，`activate / rollback` 由 InferPlatform 控制、内部 runtime 执行；
-3. 业务纠偏在 InferPlatform 接受后立即重算，训练资格由 TrainPlatform 独立审核，不自动更新模型；
-4. 命名、分支、中文 emoji 提交、文档校验和质量门禁遵循 `standards/`；
-5. 迁移按文档 -> 代码 -> 测试 -> CI 推进，不自动重写历史。本仓只承担文档与契约校验，不假装提供可运行服务。
+各工程仓之间的交互通信与数据交换强制绑定以下候选契约，禁止私自定制数据传输格式：
 
-## 六、候选契约导航
-
-| 文档 | 范围 | 当前说明 |
+| 契约文档 | 覆盖领域与核心约束 | 状态说明 |
 | :--- | :--- | :--- |
-| [API](contracts/API.md) | 在线业务 API、会话、权限、幂等与错误处理 | `api.v1-candidate`，M0 待实现 |
-| [DATA](contracts/DATA.md) | Observation、Evidence、Decision、Correction 及领域枚举 | 候选 DTO 与语义约束，尚未冻结 |
-| [DATE_RULES](contracts/DATE_RULES.md) | 日历运算、期限边界、临期、冲突与历史重放 | `date-rules.v1` 候选，尚无已验收日期引擎 |
-| [MODEL](contracts/MODEL.md) | 模型包、元数据、兼容性、发布与切换约束 | `model-bundle.v1` 候选，示例不是实测 |
-| [TRAINING](contracts/TRAINING.md) | 冻结数据、训练执行、评测登记与发布治理 | `training.v1` 候选，尚无已实现平台或入口 |
+| [contracts/API.md](contracts/API.md) | 在线 RESTful API、识别会话、鉴权令牌、幂等性与错误码 | 候选标准，M0 优先落地 |
+| [contracts/DATA.md](contracts/DATA.md) | 机器 Observation、聚合 Evidence、决策 Decision 与 Correction | 候选标准，底层统一数据格式 |
+| [contracts/DATE_RULES.md](contracts/DATE_RULES.md) | 公历日历规则、不减一天准则、冲突消歧与多状态推导 | 候选标准，语义推导引擎基准 |
+| [contracts/MODEL.md](contracts/MODEL.md) | 标准模型包文件清单、张量维度、字典、预后处理与 smoke 用例 | 候选标准，模型统一交付格式 |
+| [contracts/TRAINING.md](contracts/TRAINING.md) | 冻结数据集只读规范、单机调度输入输出与状态机迁移 | 候选标准，离线实验统一约束 |
 
-候选机器契约已经纳入本仓，并与人工契约同步评审和版本化：
+全系统同时维护具备强类型约束的机器可读契约：
+- [OpenAPI 3.1 规范定义](contracts/openapi.json)
+- [Observation 机器观察值 Schema](contracts/schemas/observation.v1.schema.json)
+- [Evidence 结构化证据 Schema](contracts/schemas/evidence.v1.schema.json)
+- [Decision 标示决策 Schema](contracts/schemas/decision.v1.schema.json)
+- [Correction 字段纠偏 Schema](contracts/schemas/correction.v1.schema.json)
 
-- [OpenAPI 3.1](contracts/openapi.json)；
-- [observation.v1.schema.json](contracts/schemas/observation.v1.schema.json)；
-- [evidence.v1.schema.json](contracts/schemas/evidence.v1.schema.json)；
-- [decision.v1.schema.json](contracts/schemas/decision.v1.schema.json)；
-- [correction.v1.schema.json](contracts/schemas/correction.v1.schema.json)。
+---
 
-文件存在、JSON/Schema 结构校验通过或文档引用有效，都不等于生产契约冻结、服务可运行或模型效果达标。只有对应实现、契约、权限、日期规则、真实模型输入输出及端到端测试通过并保留审核记录后，才能冻结相关版本。
+## 六、工程协作与质量原则
 
-## 七、公开文档与访问权限
-
-本仓内容按可公开文档边界编写，但仓库是否公开、成员访问权和分支保护以实际平台配置为准，本文不声明已配置。公开设计文档不授予图片、训练资产、模型包或在线会话的访问权限；这些资源须分别按来源许可、用户授权和最小权限控制。公开示例不包含私有路径、真实用户信息、秘密凭据或未授权素材。
+- **架构决议至上**：所有跨仓代码实现必须严格对齐 ADR-001 边界；
+- **模型生命周期隔离**：TrainPlatform 负责治理留痕（`register / validate / release`），InferPlatform 负责在线加载与安全回滚（`activate / rollback`）；
+- **数据流闭环纪律**：用户纠偏在在线层即时更新会话决策；晋升为离线训练样本必须经由 TrainPlatform 严格质量审核，杜绝未经审核的标签污染；
+- **代码提交规范**：遵循 Conventional Commits 格式 `<emoji> <type>: <简明中文改动>`；
+- **资产与代码隔离**：大容量图像与模型文件绝不入 Git 仓库，敏感配置通过受控环境变量注入。
