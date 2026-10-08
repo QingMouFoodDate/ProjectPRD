@@ -73,6 +73,8 @@ manifest.files 列出除自身外的全部包文件及 SHA-256（含配置、字
 | released | 获授权供生产 Runtime 加载（不等于 active） |
 | deprecated | 停止新的部署授权 |
 
+核心生命周期运维动作如下：
+
 | 动作 | 主体 | 门禁与结果 |
 | :--- | :--- | :--- |
 | register | TrainPlatform 治理或 M0 手工登记 | 包与血缘完整，版本不可重用；幂等登记 |
