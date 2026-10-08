@@ -1,7 +1,7 @@
 # 轻眸识刻在线 API 候选契约
 
 > **状态**：`api.v1-candidate`，由 InferPlatform 实现后提供；当前 M0 待实现。
-> **事实源**：[核心数据模型.md](核心数据模型.md)、[日期推导规则.md](日期推导规则.md)、[模型交付规约.md](模型交付规约.md)、[系统架构.md](../系统架构.md)。
+> **事实源**：[DATA.md](DATA.md)、[日期推导规则.md](日期推导规则.md)、[MODEL.md](MODEL.md)、[系统架构.md](../系统架构.md)。
 > **机器定义**：[openapi.json](openapi.json)，OpenAPI 3.1（引用四份候选 JSON Schema）。
 
 ## 一、范围与基础约定

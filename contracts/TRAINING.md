@@ -2,7 +2,7 @@
 
 > **状态**：`training.v1` 候选。
 > **边界**：TrainPlatform 治理、ModelTrain 执行；InferPlatform 仅移交受控待审记录。M0 允许单机执行与手工登记。
-> **依据**：[核心数据模型.md](核心数据模型.md)、[模型交付规约.md](模型交付规约.md)、[数据质量规范.md](../standards/数据质量规范.md)、[系统架构.md](../系统架构.md)。
+> **依据**：[DATA.md](DATA.md)、[MODEL.md](MODEL.md)、[数据质量规范.md](../standards/数据质量规范.md)、[系统架构.md](../系统架构.md)。
 
 ## 一、领域实体与唯一名称
 

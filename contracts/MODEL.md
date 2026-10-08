@@ -12,7 +12,7 @@
 | InferPlatform | 选择授权版本、activate/rollback、记录实际版本 | 模型训练与替代发布审核 |
 | Inference Runtime | 哈希/配置/张量校验、模型加载、检测/OCR、Observation | 会话、Evidence、日期 Decision 或发布授权 |
 
-模型输出张量，Runtime 解码后构建 [核心数据模型.md](核心数据模型.md) 中的 Observation；模型与 Runtime 均不输出 marked_status、review_status 或食品安全结论。
+模型输出张量，Runtime 解码后构建 [DATA.md](DATA.md) 中的 Observation；模型与 Runtime 均不输出 marked_status、review_status 或食品安全结论。
 
 ## 二、候选包必需文件
 
@@ -90,4 +90,5 @@ manifest.files 列出除自身外的全部包文件及 SHA-256（含配置、字
 
 ## 七、端侧分发与冻结检查
 
-C3 端侧元数据接口由 [在线接口契约.md](在线接口契约.md) 定义，返回 released 包的元数据、Profile 及下载清单。客户端下载后完整校验，失败时保留旧版。端侧仅生成候选观察值，端云协议未就绪前不替代统一定决。
+C3 端侧元数据接口由 [API.md](API.md) 定义，返回 released 包的元数据、Profile 及下载清单。客户端下载后完整校验，失败时保留旧版。端侧仅生成候选观察值，端云协议未就绪前不替代统一定决。
+

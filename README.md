@@ -52,11 +52,11 @@ ProjectPRD/
 ├── contracts/                     # 跨仓接口与模型格式契约目录
 │   ├── schemas/                  # 机器校验数据结构定义目录
 │   ├── openapi.json              # OpenAPI 3.1 机器定义
-│   ├── 在线接口契约.md            # 在线 RESTful API 规约
-│   ├── 核心数据模型.md            # 领域实体与 Schema 映射
+│   ├── API.md                    # 在线 RESTful API 规约
+│   ├── DATA.md                   # 领域实体与 Schema 映射
 │   ├── 日期推导规则.md            # 日历加减算法与测试向量
-│   ├── 模型交付规约.md            # 标准模型包结构与状态机
-│   └── 离线训练规约.md            # 单机调度与任务执行规范
+│   ├── MODEL.md                  # 标准模型包结构与状态机
+│   └── TRAINING.md               # 单机调度与任务执行规范
 ├── standards/                     # 研发质量与工程规范目录
 │   ├── 数据质量规范.md            # 样本准入、排除与标注规则
 │   └── 工程协作指南.md            # 命名约定与中文提交规范
@@ -75,11 +75,11 @@ ProjectPRD/
 
 | 契约文档 | 覆盖领域与核心约束 | 状态说明 |
 | :--- | :--- | :--- |
-| [contracts/在线接口契约.md](contracts/在线接口契约.md) | 在线 RESTful API、识别会话、鉴权令牌、幂等性与错误码 | 候选标准，M0 优先落地 |
-| [contracts/核心数据模型.md](contracts/核心数据模型.md) | 机器 Observation、聚合 Evidence、决策 Decision 与 Correction | 候选标准，底层统一数据格式 |
+| [contracts/API.md](contracts/API.md) | 在线 RESTful API、识别会话、鉴权令牌、幂等性与错误码 | 候选标准，M0 优先落地 |
+| [contracts/DATA.md](contracts/DATA.md) | 机器 Observation、聚合 Evidence、决策 Decision 与 Correction | 候选标准，底层统一数据格式 |
 | [contracts/日期推导规则.md](contracts/日期推导规则.md) | 公历日历规则、不减一天准则、冲突消歧与 36 项测试向量 | 候选标准，语义推导引擎基准 |
-| [contracts/模型交付规约.md](contracts/模型交付规约.md) | 标准模型包文件清单、张量维度、字典、预后处理与 smoke 用例 | 候选标准，模型统一交付格式 |
-| [contracts/离线训练规约.md](contracts/离线训练规约.md) | 冻结数据集只读规范、单机调度输入输出与状态机迁移 | 候选标准，离线实验统一约束 |
+| [contracts/MODEL.md](contracts/MODEL.md) | 标准模型包文件清单、张量维度、字典、预后处理与 smoke 用例 | 候选标准，模型统一交付格式 |
+| [contracts/TRAINING.md](contracts/TRAINING.md) | 冻结数据集只读规范、单机调度输入输出与状态机迁移 | 候选标准，离线实验统一约束 |
 
 全系统维护具备强类型约束的机器可读契约：
 - [OpenAPI 3.1 规范定义](contracts/openapi.json)
