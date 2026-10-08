@@ -5,7 +5,18 @@
 
 ## 一、事实主线与契约索引
 
-数据流向：`Image -> Runtime -> Observation -> InferPlatform 业务解析与聚合 -> Evidence -> 日期规则 -> Decision`。
+数据实体处理链路如下：
+
+```mermaid
+flowchart LR
+    A["Image<br/>受控原始图像"] --> B["Inference Runtime<br/>模型检测与识别"]
+    B --> C["Observation<br/>机器原生观察值"]
+    C --> D["InferPlatform<br/>业务解析与证据聚合"]
+    D --> E["Evidence<br/>结构化事实证据"]
+    E --> F["日期推导规则<br/>法定日历计算引擎"]
+    F --> G["Decision<br/>标示状态业务决策"]
+```
+
 
 - Runtime 仅生成原始 `Observation`，不生成业务 `Evidence`、`Decision` 或食品安全结论；
 - 原始图像与机器观察值不可被人工修正或重算覆盖。重复推理生成新 `observation_id`，保留旧观察值及其模型版本；

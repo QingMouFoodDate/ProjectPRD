@@ -60,7 +60,26 @@ ModelTrain 严格只读消费数据与标注，禁止重切分或写回冻结目
 
 ## 四、状态、重试与幂等
 
+单机训练作业生命周期迁移链路如下：
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING: 任务提交
+    PENDING --> RUNNING: 前置检查通过
+    PENDING --> FAILED: 校验失败
+    PENDING --> CANCELLED: 手动取消
+    RUNNING --> SUCCEEDED: 执行成功且产物完备
+    RUNNING --> FAILED: 进程异常退出或断言失败
+    RUNNING --> CANCELLED: 外部终止
+    FAILED --> RETRYING: 符合重试策略
+    RETRYING --> RUNNING: 递增 attempt 重试
+    RETRYING --> FAILED: 达到重试上限
+    SUCCEEDED --> [*]
+    CANCELLED --> [*]
+```
+
 | 当前 TrainJob 状态 | 允许的后继及条件 |
+
 | :--- | :--- |
 | PENDING | RUNNING；校验失败到 FAILED；取消到 CANCELLED |
 | RUNNING | 成功到 SUCCEEDED；失败到 FAILED；终止到 CANCELLED |

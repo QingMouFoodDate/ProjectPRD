@@ -64,7 +64,17 @@ manifest.files 列出除自身外的全部包文件及 SHA-256（含配置、字
 
 ## 五、状态与动作
 
-候选状态迁移：`candidate -> validated -> released -> deprecated`。
+候选状态迁移链路如下：
+
+```mermaid
+stateDiagram-v2
+    [*] --> candidate: 导出并登记模型包
+    candidate --> validated: 全量文件与加载门禁通过
+    validated --> released: 业务与许可审核批准发布
+    released --> deprecated: 停止新增在线部署授权
+    deprecated --> [*]
+```
+
 
 | model_status | 候选语义 |
 | :--- | :--- |
