@@ -13,7 +13,7 @@ flowchart LR
     B --> C["Observation<br/>机器原生观察值"]
     C --> D["InferPlatform<br/>业务解析与证据聚合"]
     D --> E["Evidence<br/>结构化事实证据"]
-    E --> F["日期推导规则<br/>法定日历计算引擎"]
+    E --> F["日期推导规则<br/>日历计算与期限比较"]
     F --> G["Decision<br/>标示状态业务决策"]
 ```
 
@@ -38,8 +38,10 @@ flowchart LR
 
 - ID 与版本标识为非空字符串；
 - 日期为真实公历 `YYYY-MM-DD`（范围 `0001-01-01` 至 `9999-12-31`），须经日历有效性校验；
-- 时间为带显式时区偏移的 ISO 8601 / RFC 3339 字符串（如 `2025-05-18T09:00:00+08:00`）；
-- 数值必须为有限数，拒绝 NaN、Infinity；置信度为 `0..1` 或字段定义允许的 `null`。
+- 时间为带已知偏移的 RFC 3339 字符串（如 `2025-05-18T09:00:00+08:00`），允许 Z，拒绝无偏移、未知偏移 -00:00 和尾随空白；
+- 数值必须为有限数，拒绝 NaN、正负 Infinity；置信度为 `0..1` 或字段定义允许的 `null`。
+
+验证器须启用 date/date-time 格式检查并确认相应检查器已注册；正则只能检查外形。JSON 输入拒绝重复键和非法 Unicode。ID 唯一性、实体归属、真实坐标和来源另作业务校验，结构通过不等于事实可靠。
 
 ## 二、离线 SampleAsset
 
@@ -59,17 +61,19 @@ flowchart LR
 
 工艺枚举：`inkjet_dot_matrix`、`inkjet`、`laser_engraving`、`emboss`、`label_thermal`、`print`。载体枚举：`plastic_bag`、`can`、`bottle`、`bottle_cap`、`box`、`tetra_pak`、`plastic_tray`。
 
-### 1. 工程落地基线
+### 1. 当前采集情况
 
-`SampleAsset` 契约已在受控基准数据集 **Master Dataset v1.0** 中完成全量对齐与固化：
+截至 2026-10-13，当前采集清单共 **1523 张图片，仍在补充**。文件沿用 **Master Dataset v1.0** 名称，采集批次与训练冻结版本分别管理：
 
-| 维度 | 落地规约与分布 | 说明与保障 |
+| 维度 | 当前记录 | 使用前要求 |
 | :--- | :--- | :--- |
-| **样本规模** | 1523 张真实打码原图 | 经单张原图核验，元数据清单一一对应 |
-| **数据来源** | 网络图片: 1207 张 (79.3%)<br>线下实拍: 316 张 (20.7%) | 兼顾多样背景、电商展示与线下真实光照手持场景 |
-| **打码工艺** | 点阵喷码 (82.0%)、激光刻印 (8.5%)、连续喷墨 (4.4%)、热敏标签 (2.7%)、钢印与其他 (2.4%) | 覆盖流通领域主流打码工艺，枚举值严格对齐契约定义 |
-| **包装形态** | 复合软包 (37.0%)、纸盒外箱 (17.1%)、瓶身瓶盖 (11.4%)、金属圆罐 (8.7%)、其他容器 (25.8%) | 覆盖软包、硬盒、圆罐与曲面瓶等常见包装载体 |
-| **质量门禁** | SHA-256 二进制零重复，排除红圈涂鸦与广告等干扰 | 自动化门禁脚本全检，建立不可变基准快照 |
+| **样本规模** | 1523 条清单与文件对应 | 收集量不等于标注、审核或冻结完成 |
+| **数据来源** | 网络图片 1207 张（79.3%）<br>线下实拍 316 张（20.7%） | 统一登记训练、评测、展示与再分发的许可依据 |
+| **工艺与包装** | 保留现有标签，历史别名与分类口径仍待统一 | 审核映射后再发布分层比例，不以未经统一的统计描述覆盖程度 |
+| **质量与完整性** | 清单有单张原图审阅通过标记，SHA-256 字段无重复 | 审核记录、实际内容摘要和近重复分别核验，标记不能代替原图检查 |
+| **标注与冻结** | 有 OCR 和日期记录，尚未关联完整 annotation、license、group_key 与 split | 补齐许可、标注修订和分组切分后，登记不可变 DatasetVersion |
+
+当前清单含 23 个字段，与候选 SampleAsset 尚未完全对齐；filename、acquisition_type、transcription 等字段须明确映射，保留原始记录，不补造缺失的许可或审核信息。本节集中维护采集进度，其他仓库引用；已批准的冻结数据只读，增补与重新审核产生新版本。
 
 ## 三、Observation 候选契约
 
@@ -80,7 +84,7 @@ flowchart LR
 | `schema_version` | 固定 `observation.v1` |
 | `observation_id` | 非空字符串，观察值唯一标识 |
 | `image_id` | 非空字符串，引用原始 Image |
-| `model_version` | 非空模型包版本标识 |
+| `model_version` | 实际加载的不可变模型包版本，不能用 released 等状态冒充 |
 | `generated_at` | 带时区偏移时间，Runtime 生成时刻 |
 | `image_size` | 包含 `width`, `height` 正整数，原图像素尺寸 |
 | `quality_passed` | boolean 或 null（null 表示未提供判断） |
@@ -99,16 +103,18 @@ flowchart LR
 | `transcription` | 字符串或 null，原始 OCR 输出 |
 | `text_confidence` | OCR 置信度，有限数 `0..1` 或 null |
 
-坐标约束：`0 <= x1 < x2 <= width` 且 `0 <= y1 < y2 <= height`。坐标系必须映射回原图物理空间。
+坐标约束：`0 <= x1 < x2 <= width` 且 `0 <= y1 < y2 <= height`；右、下边界允许等于 width/height。缩放、letterbox、裁剪和旋转输出须映射回实际原图。合法空 detections 表示未检出，推理故障不能伪装成成功空结果。
 
 ### 1. 明确可选的观察字段
 
 | 可选字段 | 结构约束 |
 | :--- | :--- |
-| `quality_metrics` | 对象；包含 `blurriness_score` 与 `overexposure_ratio`（0..1） |
+| `quality_metrics` | 无必需子字段的对象；blurriness_score 为非负有限数，overexposure_ratio 为 0..1，两者均可省略 |
 | `global_texts` | 数组；每项含 `transcription` 字符串与 `confidence`（0..1 或 null） |
-| `barcode` | 对象；含 `type`, `value` 与 `confidence` |
-| `detections[].character_confidences` | 0..1 有限数数组 |
+| `barcode` | 对象；必需非空 type、value 及 confidence（0..1 或 null） |
+| `detections[].character_confidences` | 0..1 有限数数组，字符对齐按真实解码器验证 |
+
+未生成的可选字段可省略，不将质量指标、全局 OCR 或条码设为 M0 前置条件；提供时须满足对应结构。
 
 ## 四、Evidence 候选契约
 
@@ -119,7 +125,7 @@ flowchart LR
 | `schema_version` | 固定 `evidence.v1` |
 | `evidence_id`, `session_id` | 非空字符串，证据版本与会话引用 |
 | `generated_at` | 带时区偏移生成时间 |
-| `parser_version` | 非空解析策略版本 |
+| `parser_version` | 非空版本，关联不可变解析、置信与修正选择策略及配置 |
 | `facts` | 事实数组，可为空；`fact_id` 唯一 |
 | `conflicts` | 冲突数组，可为空 |
 | `missing_fields` | 非空字符串去重数组，聚合发现的缺项 |
@@ -135,11 +141,15 @@ flowchart LR
 | `raw_text` | 原始证据文本或 null |
 | `source_type` | `MODEL` / `MANUAL` |
 | `source_image_id` | 引用会话内真实 Image |
-| `source_observation_id` | MODEL 时必填，引用真实 Observation；MANUAL 时为 null |
-| `source_box_id` | 对应 Observation 检测框标识或 null |
+| `source_observation_id` | 非空标识或 null；MODEL 必须引用真实 Observation，MANUAL 可保留相关观察引用或为 null |
+| `source_box_id` | 真实检测框标识或 null；非空时必须有对应 Observation 引用，全局文本可为 null |
 | `source_correction_id` | MANUAL 时必填，引用合法 Correction；MODEL 时为 null |
 | `confidence` | 有限数 0..1 或 null；MANUAL 固定 null |
 | `eligible_for_decision` | boolean，由解析策略与修正规则共同决定 |
+
+每个 conflicts 项必需包含 field、fact_ids、reason；field 取四类事实字段，fact_ids 为至少一个真实 fact_id 的去重数组，reason 非空且非纯空白。直接与派生 EXP 不一致时引用真实 MFG、shelf_life 与直接 EXP，不虚构派生 Observation。
+
+可靠性由有记录的来源、语义与版本化策略决定；阈值仍待真实数据校准。人工修正的采纳和冲突处理留痕，不默认“最后一条”覆盖历史。无类型日期串不猜为 MFG；BEST_BEFORE 的原语义保留，仅投影作标示比较。
 
 ### 1. Evidence 哈希与不可变性
 
@@ -148,7 +158,9 @@ flowchart LR
 2. 依据 [RFC 8785 JSON Canonicalization Scheme (JCS)](https://www.rfc-editor.org/rfc/rfc8785) 进行规范化，输出标准 UTF-8 字节；
 3. 计算该字节流的 SHA-256，生成 `sha256:` + 64 位小写十六进制字符串。
 
-任何事实、时间或策略变更均派生新版本，不覆盖历史。
+规范化只移除顶层 evidence_hash，不删时间、来源、资格或配置版本，不额外排序数组。JCS 使用规定的 Unicode、属性排序和 ECMAScript 数字序列化；`json.dumps(sort_keys=True)` 不能替代，非有限数、非法 Unicode 或不满足 I-JSON/JCS 的数值须拒绝，不能静默舍入。
+
+任何事实、时间或策略变更均派生新 evidence_id/hash，不覆盖历史。使用或重放时重算完整 Evidence 哈希；Schema 只检查摘要外形，不证明授权、真实来源或完整性。
 
 ## 五、Decision 候选契约
 
@@ -170,7 +182,7 @@ flowchart LR
 | `used_fact_ids` | 引用的真实事实 ID 去重数组 |
 | `missing_fields` | 本次判定缺失的必要字段去重数组 |
 | `warnings` | 告警信息数组，可为空 |
-| `guidance` | 补拍或人工复核建议，不作食品安全结论 |
+| `guidance` | 建议字符串或 null，提供补拍或人工复核指引 |
 
 `evidence_snapshot` 子对象：
 
@@ -179,7 +191,9 @@ flowchart LR
 | `mfg_date` | 真实日期字符串或 null |
 | `shelf_life` | `{value: 正整数, unit: DAY / MONTH / YEAR}` 或 null |
 | `exp_date` | 选定直接到期日或派生到期日，未选定为 null |
-| `exp_date_is_derived` | boolean 或 null（直接 EXP 为 false，派生为 true） |
+| `exp_date_is_derived` | 直接 EXP 为 false，派生为 true；无选定 exp_date 时为 null |
+
+派生标志为 true 时必须有真实 mfg_date 和 shelf_life，used_fact_ids 引用其来源事实。必要冲突未解决时不任意选择投影，未选定值置 null；snapshot 不含完整来源和冲突，不能代替 Evidence 重放。
 
 ### 1. 二维状态语义
 
@@ -194,7 +208,7 @@ flowchart LR
   - `EVIDENCE_CONFLICT`：存在未解决冲突或时间逻辑错误；
   - `LOW_CONFIDENCE`：必要候选置信度不足。
 
-优先级：CONFLICT > LOW_CONFIDENCE > MISSING > COMPLETE。
+复核优先级：EVIDENCE_CONFLICT > LOW_CONFIDENCE > INFORMATION_MISSING > EVIDENCE_COMPLETE，只针对本次必要日期事实。可靠 EXP-only 已超期或剩余 0..30 天可判定；剩余 >30 天且无可靠 MFG 时须补充比例输入，不能默认在期。非必要存储条件问题只生成提示，详见 [日期推导规则.md](日期推导规则.md)。
 
 ## 六、Correction 候选契约与最小实体
 
@@ -205,8 +219,10 @@ flowchart LR
 | `schema_version` | 固定 `correction.v1` |
 | `image_id` | 归属会话的非空图像标识 |
 | `corrected_field` | `mfg_date` / `exp_date` / `shelf_life` / `storage_condition` |
-| `corrected_value` | 合法日期字符串、value/unit 对象或存储条件文本 |
-| `correction_reason` | 非空修正理由 |
+| `corrected_value` | 与对应 field 类型一致，不允许 null；保质期 value 为正整数、unit 为 DAY/MONTH/YEAR，文本非空非纯空白 |
+| `correction_reason` | 非空且非纯空白的修正理由 |
+
+验证权限、图像归属与值后保存 Correction，新增 MANUAL 事实并一致提交新 Evidence/Decision，保留原 Observation 和修正采纳记录。业务成功不自动获得训练资格。完整 C0 保留 OCR 原文与检测框修正，但 correction.v1 未定义相应请求，须升级契约后接入。
 
 ### 2. 在线 Image 最小字段表
 
@@ -216,7 +232,7 @@ flowchart LR
 | `created_at` | 服务端带偏移创建时间 |
 | `width`, `height` | 原图像素宽高 |
 | `image_role` | `macro_date` / `packaging_full` / `barcode` 或 null |
-| `asset_url` | 受控访问 URL 或 null |
+| `asset_url` | 受控 HTTPS URL 或 null，访问权限及期限受控，不暴露存储路径 |
 
 ### 3. RecognitionSession 最小字段表
 
@@ -227,6 +243,8 @@ flowchart LR
 | `images` | Image 数组 |
 | `observations` | 完整 Observation 数组 |
 | `evidence`, `decision` | 当前完整 Evidence 与 Decision（或 null） |
+
+GET 会话视图不包含 session_token；令牌仅在创建及其合法幂等重放中返回。裁剪、校正与增强图变体的对外协议尚未定义，不将提议资源当作已有 DTO 字段。
 
 ### 4. Correction 存档最小字段表
 
@@ -247,9 +265,11 @@ flowchart LR
 | `COMPLETED` | 处理完成且无需复核 | 是 |
 | `NEEDS_REVIEW` | 处理完成但需补充或复核证据 | 是 |
 | `FAILED` | 技术处理失败 | 是 |
-| `EXPIRED` | 会话已过期 | 否 |
+| `EXPIRED` | 会话已过期 | 是 |
 
 ## 八、内嵌结构样例与校验边界
+
+以下为合成结构示例，不是模型实测或项目效果；对象引用和语义另作业务验证。
 
 ### 1. Observation 最小完整结构样例
 
@@ -301,6 +321,8 @@ flowchart LR
 
 ### 3. Evidence 结构片段
 
+本片段省略必需 evidence_hash，整体 Schema 校验应失败。须由标准 JCS 实现计算实际哈希后验证完整对象，不填占位摘要。
+
 ```json
 {
   "schema_version": "evidence.v1",
@@ -343,6 +365,8 @@ flowchart LR
 
 ### 4. Decision 结构片段
 
+本片段同样省略 evidence_hash，整体校验应失败；完整对象须引用对应 Evidence 的实际哈希。snapshot 不能单独证明决策来源。
+
 ```json
 {
   "schema_version": "decision.v1",
@@ -371,9 +395,9 @@ flowchart LR
 
 ## 九、冻结前的真实校验清单
 
-1. 四份 Schema 的 Draft 2020-12 校验，通过正负用例测试；
+1. 四份 Schema 的 Draft 2020-12 自检，启用格式检查，通过 required、nullable、未知字段及类型联动的正负用例；
 2. Runtime 验证原图映射、非有限数拦截与空检测处理；
 3. InferPlatform 验证 MODEL / MANUAL 来源、会话归属、冲突处理与版本化可靠性策略；
-4. 标准 JCS 实现验证属性排序、Unicode 处理与哈希完整性；
+4. 标准 JCS 实现验证数字、属性排序、Unicode、完整 Evidence 哈希与篡改拒绝；
 5. 日期引擎运行相关候选边界向量、时区转换与历史重放一致性测试；
-6. API 与客户端联调验证会话生命周期与受控凭据流转。
+6. API 与客户端联调验证六种 M0 状态、幂等、资源归属、受控凭证和纠偏一致更新；真实模型输入输出及兼容检查通过后共同评审冻结。
