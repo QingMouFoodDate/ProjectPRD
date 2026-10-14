@@ -27,14 +27,14 @@ release_bundle/                   # 不可变候选交付包
 ├── postprocess.yaml              # NMS、阈值与解码参数
 ├── labels.json                   # 检测类别定义
 ├── metadata.yaml                 # 模型卡、输入输出 Profile 与兼容性
-├── manifest.json                 # 文件清单、大小与 SHA-256
+├── manifest.json                 # 文件清单、大小、SHA-256 及 cv_ops_sha256 算子锁
 ├── evaluation.json               # 评测配置、口径与基准指标
 └── smoke/                        # 可复现的运行验证输入输出
     ├── input.json                # 输入资产/张量及其哈希
     └── expected.json             # 期望输出与容差范围
 ```
 
-manifest.files 列出除 manifest.json 自身外的全部包文件、大小与 SHA-256（含配置、字典、标签、评测与 smoke），防止自哈希循环；manifest_sha256 校验 manifest 原始文件字节，bundle_sha256 校验固定打包格式的完整制品字节，两者由外部不可变登记绑定。同 model_version 不得换包、换配置或重新压缩，内容变更创建新版本。
+manifest.files 列出除 manifest.json 自身外的全部包文件、大小与 SHA-256（含配置、字典、标签、评测与 smoke），防止自哈希循环；manifest 显式登记 `cv_ops_sha256` 字段绑定 `qingmou_cv_ops.py` 的 SHA-256 哈希，InferPlatform 加载时核验算子同源性以杜绝 Train-Serve Skew；manifest_sha256 校验 manifest 原始文件字节，bundle_sha256 校验固定打包格式的完整制品字节，两者由外部不可变登记绑定。同 model_version 不得换包、换配置或重新压缩，内容变更创建新版本。
 
 解包与读取均拒绝绝对路径、父目录穿越、重复或规范化后冲突的条目、链接逃逸与包根目录外目标。smoke 输入可随包交付或使用受控引用，必须获授权、未过期且可取得；FP16 / INT8 等可选交付另记 Profile、校准数据版本与基准评测，不作为 M0 前置条件。
 
@@ -44,6 +44,7 @@ manifest.files 列出除 manifest.json 自身外的全部包文件、大小与 S
 | :--- | :--- |
 | model_version | 不可变模型包标识，不使用 candidate、released 等状态值 |
 | bundle_version | 包结构版本，当前候选 model-bundle.v1 |
+| cv_ops_sha256 | 必填，单文件算子库 `qingmou_cv_ops.py` 的 SHA-256 哈希，Runtime 加载时强校验对齐 |
 | manifest_sha256 / bundle_sha256 | 外部不可变登记的真实完整性校验引用 |
 | 文件清单 | 相对 path、size_bytes、sha256，与实际包逐项一致；路径校验按第二章执行 |
 | 输入输出 Profile | 实际导出名字、dtype、shape/动态维度、坐标单位、轴含义与目标精度 |

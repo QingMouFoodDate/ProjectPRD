@@ -79,7 +79,7 @@ ProjectPRD/
 | :----------------------------------------------------- | :----------------------------------------------------------- | :------------------------- |
 | [contracts/API.md](contracts/API.md)                   | 在线 RESTful API、识别会话、鉴权令牌、幂等性与错误码         | 候选标准，M0 优先落地      |
 | [contracts/DATA.md](contracts/DATA.md)                 | 离线资产与数据统计、Observation、Evidence、Decision 与 Correction | 候选标准，底层统一数据格式 |
-| [contracts/日期推导规则.md](contracts/日期推导规则.md) | date-rules.v2 规范：有据起算、直接到期日、固定临期与冲突复核 | 已由 date_rules_engine_v2.py 实测 100% 通过 V01~V28 验证 |
+| [contracts/日期推导规则.md](contracts/日期推导规则.md) | date-rules.v2 规范：有据起算、直接到期日、固定临期与冲突复核 | 独立规则原型已通过 V01~V30 单元测试，待 M0 在线服务集成验收 |
 | [contracts/MODEL.md](contracts/MODEL.md)               | 标准模型包文件清单、张量维度、字典、预后处理与 smoke 用例    | 候选标准，模型统一交付格式 |
 | [contracts/TRAINING.md](contracts/TRAINING.md)         | 冻结数据集只读规范、单机调度输入输出与状态机迁移             | 候选标准，离线实验统一约束 |
 

@@ -36,7 +36,17 @@
             "uniqueItems": true,
             "items": { "$ref": "#/$defs/id" }
           },
-          "reason": { "type": "string", "minLength": 1, "pattern": "\\S" }
+          "reason": { "type": "string", "minLength": 1, "pattern": "\\S" },
+          "conflict_code": {
+            "enum": [
+              "MULTI_VALUE_CONFLICT",
+              "DERIVED_VS_DIRECT_MISMATCH",
+              "EXP_PRECEDES_MFG",
+              "FUTURE_MFG_DATE",
+              "BARCODE_VS_OCR_MISMATCH"
+            ],
+            "description": "明确可选：结构化机器冲突分类代码。"
+          }
         }
       }
     },
@@ -102,11 +112,21 @@
           "oneOf": [{ "type": "string" }, { "$ref": "#/$defs/shelfLife" }]
         },
         "raw_text": { "type": ["string", "null"] },
-        "source_type": { "enum": ["MODEL", "MANUAL"] },
+        "source_type": { "enum": ["MODEL", "MANUAL", "BARCODE_CATALOG"] },
         "source_image_id": { "$ref": "#/$defs/id" },
         "source_observation_id": { "type": ["string", "null"], "minLength": 1 },
         "source_box_id": { "type": ["string", "null"], "minLength": 1 },
         "source_correction_id": { "type": ["string", "null"], "minLength": 1 },
+        "source_barcode_gtin": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9]{8,14}$",
+          "description": "条码商品主数据查表对应的 GTIN，source_type 为 BARCODE_CATALOG 时必填 8~14 位数字"
+        },
+        "barcode_catalog_id": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "description": "商品主数据条目或数据库版本唯一标识"
+        },
         "confidence": {
           "type": ["number", "null"],
           "minimum": 0,
@@ -148,7 +168,9 @@
           "then": {
             "properties": {
               "source_observation_id": { "$ref": "#/$defs/id" },
-              "source_correction_id": { "const": null }
+              "source_correction_id": { "const": null },
+              "source_barcode_gtin": { "type": "null" },
+              "barcode_catalog_id": { "type": "null" }
             }
           }
         },
@@ -160,7 +182,25 @@
           "then": {
             "properties": {
               "source_correction_id": { "$ref": "#/$defs/id" },
-              "confidence": { "const": null }
+              "confidence": { "const": null },
+              "source_barcode_gtin": { "type": "null" },
+              "barcode_catalog_id": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "source_type": { "const": "BARCODE_CATALOG" } },
+            "required": ["source_type"]
+          },
+          "then": {
+            "required": ["source_barcode_gtin", "barcode_catalog_id"],
+            "properties": {
+              "source_barcode_gtin": { "type": "string", "pattern": "^[0-9]{8,14}$" },
+              "barcode_catalog_id": { "$ref": "#/$defs/id" },
+              "source_observation_id": { "type": "null" },
+              "source_box_id": { "type": "null" },
+              "source_correction_id": { "type": "null" }
             }
           }
         },

@@ -98,7 +98,10 @@
       ],
       "properties": {
         "box_id": { "$ref": "#/$defs/id" },
-        "category": { "const": "date_area" },
+        "category": {
+          "enum": ["date_area", "mfg_line", "exp_line", "shelf_life_line", "lot_line"],
+          "description": "检测区域类别，默认与候选基准为 date_area，细分单行支持 mfg_line / exp_line 等"
+        },
         "bbox": {
           "type": "array",
           "minItems": 4,
@@ -115,6 +118,37 @@
           "type": "array",
           "items": { "$ref": "#/$defs/confidence" },
           "description": "明确可选。若提供，字符对齐方式须由实际解码器版本定义并测试，不推定已校准。"
+        },
+        "polygon": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": { "type": "number", "minimum": 0 }
+          },
+          "description": "明确可选：顺时针四点多边形原图坐标 [[x1,y1],[x2,y2],[x3,y3],[x4,y4]]，用于倾斜文本透视校正与亚像素贴合。"
+        },
+        "line_role": {
+          "enum": ["mfg_line", "exp_line", "shelf_life_line", "lot_line", "unknown"],
+          "description": "明确可选：单行文本功能语义角色。"
+        },
+        "crop_url": {
+          "type": ["string", "null"],
+          "description": "明确可选：受控局部切片预览路径或引用。"
+        },
+        "adaptive_trace": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "retried": { "type": "boolean" },
+            "operator": { "type": "string" },
+            "raw_before_retry": { "type": ["string", "null"] },
+            "gain_score": { "type": ["number", "null"] }
+          },
+          "description": "明确可选：Tier-1 视觉信号级自适应重试算子轨迹。"
         }
       }
     }

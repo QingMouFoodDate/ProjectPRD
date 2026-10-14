@@ -110,7 +110,7 @@ flowchart LR
 | 必需字段 | 类型与约束 |
 | :--- | :--- |
 | `box_id` | 非空字符串，同一 Observation 内唯一 |
-| `category` | 固定 `date_area` |
+| `category` | 枚举 `["date_area", "mfg_line", "exp_line", "shelf_life_line", "lot_line"]` |
 | `bbox` | 恰好四个非负有限数 `[x1, y1, x2, y2]`，单位为像素 |
 | `bbox_format` | 固定 `xyxy` |
 | `coordinate_space` | 固定 `original_image` |
@@ -127,6 +127,10 @@ flowchart LR
 | `quality_metrics` | 无必需子字段的对象；blurriness_score 为非负有限数，overexposure_ratio 为 0..1，两者均可省略 |
 | `global_texts` | 数组；每项含 `transcription` 字符串与 `confidence`（0..1 或 null） |
 | `barcode` | 对象；必需非空 type、value 及 confidence（0..1 或 null） |
+| `detections[].polygon` | 恰好 4 组坐标点 `[[x1, y1], [x2, y2], [x3, y3], [x4, y4]]`，顺时针原图像素坐标，用于倾斜文本四边形精确校正 |
+| `detections[].line_role` | 枚举 `["mfg_line", "exp_line", "shelf_life_line", "lot_line", "unknown"]`，单行语义初步分类 |
+| `detections[].crop_url` | 字符串或 null，受控访问的局部切片 URL，用于前端原位高亮呈现与复核 |
+| `detections[].adaptive_trace` | 结构化对象 `{"retried": bool, "operator": str, "raw_before_retry": str|null, "gain_score": number|null}`，记录 Tier-1 运行时增强重试算子、重试前文本与置信度增益，支撑消融实验 |
 | `detections[].character_confidences` | 0..1 有限数数组，字符对齐按真实解码器验证 |
 
 未生成的可选字段可省略，不将质量指标、全局 OCR 或条码设为 M0 前置条件；提供时须满足对应结构。
@@ -154,15 +158,21 @@ flowchart LR
 | `field` | `mfg_date` / `exp_date` / `shelf_life` / `storage_condition` |
 | `value` | 日期格式 `YYYY-MM-DD`；保质期 `{value, unit}`；存储条件为非空文本 |
 | `raw_text` | 原始证据文本或 null |
-| `source_type` | `MODEL` / `MANUAL` |
+| `source_type` | 枚举 `["MODEL", "MANUAL", "BARCODE_CATALOG"]` |
 | `source_image_id` | 引用会话内真实 Image |
-| `source_observation_id` | 非空标识或 null；MODEL 必须引用真实 Observation，MANUAL 可保留相关观察引用或为 null |
-| `source_box_id` | 真实检测框标识或 null；非空时必须有对应 Observation 引用，全局文本可为 null |
-| `source_correction_id` | MANUAL 时必填，引用合法 Correction；MODEL 时为 null |
+| `source_observation_id` | 非空标识或 null；MODEL 必填，MANUAL 可选，BARCODE_CATALOG 固定 null |
+| `source_box_id` | 真实检测框标识或 null；非空时必须有对应 Observation 引用，全局文本或外部源为 null |
+| `source_correction_id` | MANUAL 时必填，引用合法 Correction；MODEL 与 BARCODE_CATALOG 时为 null |
 | `confidence` | 有限数 0..1 或 null；MANUAL 固定 null |
 | `eligible_for_decision` | boolean，由解析策略与修正规则共同决定 |
 
-每个 conflicts 项必需包含 field、fact_ids、reason；field 取四类事实字段，fact_ids 为至少一个真实 fact_id 的去重数组，reason 非空且非纯空白。直接与派生 EXP 在同一期限、同一有据口径下确有冲突时引用真实 MFG、shelf_life 与直接 EXP，不虚构派生 Observation；依据未知或不同期限先作为候选核验，不擅自记成已确认日期冲突。
+> **BARCODE_CATALOG 约束**：当 `source_type == "BARCODE_CATALOG"` 时，表示保质期等先验事实由扫码解析 EAN-13/GS1 经商品主数据查表获得。此时必须附带 `source_barcode_gtin`（8~14 位数字 GTIN）与 `barcode_catalog_id`（主数据库版本记录），且 `source_observation_id`、`source_box_id`、`source_correction_id` 均为 null。为保障离线演示与弱网高可用，InferPlatform 本地 SQLite/内存字典内置高频商品 GTIN 主数据（响应时延 < 1ms），外部 API 仅作异步预热通道并配置 50ms 超时熔断。
+
+每个 `conflicts[]` 项必需包含 `field`、`fact_ids`、`reason`，且支持结构化 `conflict_code`：
+- `field`：取四类事实字段之一；
+- `fact_ids`：至少一个真实 `fact_id` 的去重数组；
+- `reason`：非空且非纯空白的冲突描述；
+- `conflict_code`（可选）：枚举 `["MULTI_VALUE_CONFLICT", "DERIVED_VS_DIRECT_MISMATCH", "EXP_PRECEDES_MFG", "FUTURE_MFG_DATE", "BARCODE_VS_OCR_MISMATCH"]`。直接与派生 EXP 在同一期限、同一有据口径下确有冲突时引用真实 MFG、shelf_life 与直接 EXP，不虚构派生 Observation；依据未知或不同期限先作为候选核验，不擅自记成已确认日期冲突。
 
 可靠性由有记录的来源、语义与版本化策略决定；阈值仍待真实数据校准。人工修正的采纳和冲突处理留痕，不默认“最后一条”覆盖历史。无类型日期串不猜为 MFG；BEST_BEFORE 的原语义保留，仅投影作标示比较。
 
@@ -208,8 +218,9 @@ flowchart LR
 | `shelf_life` | `{value: 正整数, unit: DAY / MONTH / YEAR}` 或 null |
 | `exp_date` | 选定直接到期日或派生到期日，未选定为 null |
 | `exp_date_is_derived` | 直接 EXP 为 false，派生为 true；无选定 exp_date 时为 null |
+| `remaining_days` | 整数或 null；选定 exp_date 时为 `exp_date - observed_date` 整数天数，未选定时必须为 null |
 
-派生标志为 true 时须有真实 mfg_date、shelf_life 和对应有据起算绑定，used_fact_ids 引用来源事实；起算未知则不写唯一派生值。直接 EXP 可靠时优先作期限比较；差一天或 MFG = EXP 须按语义和依据核验，同一期限同一口径仍矛盾时保留冲突。snapshot 不含完整来源和配置，不能代替 Evidence 与计算记录重放。
+派生标志为 true 时须有真实 mfg_date、shelf_life 和对应有据起算绑定，used_fact_ids 引用来源事实；起算未知时按双口径包络定理区分非临界安全区保守下界推导与临界跳变窗口阻断。直接 EXP 可靠时优先作期限比较；差一天或 MFG = EXP 须按语义和依据核验，同一期限同一口径仍矛盾时保留冲突。snapshot 不含完整来源和配置，不能代替 Evidence 与计算记录重放。
 
 ### 1. 二维状态语义
 
@@ -224,7 +235,7 @@ flowchart LR
   - `EVIDENCE_CONFLICT`：存在未解决冲突或时间逻辑错误；
   - `LOW_CONFIDENCE`：必要候选置信度不足。
 
-复核优先级保持 EVIDENCE_CONFLICT > LOW_CONFIDENCE > INFORMATION_MISSING > EVIDENCE_COMPLETE，只针对必要日期事实。v2 的可靠 EXP-only 可独立判断超期、临期或在期，不要求 MFG；寿命比例策略从 M0 移出。直接 EXP 存在但起算依据未知时可提示复核派生依据，不能仅因此阻断日期比较；无直接 EXP 且起算未知时输出缺失。非必要存储问题只提示，详见[日期推导规则](日期推导规则.md)。
+复核优先级保持 EVIDENCE_CONFLICT > LOW_CONFIDENCE > INFORMATION_MISSING > EVIDENCE_COMPLETE，只针对必要日期事实。v2 的可靠 EXP-only 可独立判断超期、临期或在期，不要求 MFG；寿命比例策略从 M0 移出。直接 EXP 存在但起算依据未知时可提示复核派生依据，不能仅因此阻断日期比较；无直接 EXP 且起算未知时按双口径包络定理进行保守下界推导或敏感窗口阻断。非必要存储问题只提示，详见[日期推导规则](日期推导规则.md)。
 
 ## 六、Correction 候选契约与最小实体
 
@@ -234,11 +245,15 @@ flowchart LR
 | :--- | :--- |
 | `schema_version` | 固定 `correction.v1` |
 | `image_id` | 归属会话的非空图像标识 |
-| `corrected_field` | `mfg_date` / `exp_date` / `shelf_life` / `storage_condition` |
-| `corrected_value` | 与对应 field 类型一致，不允许 null；保质期 value 为正整数、unit 为 DAY/MONTH/YEAR，文本非空非纯空白 |
+| `corrected_field` | `mfg_date` / `exp_date` / `shelf_life` / `storage_condition` / `start_mode` |
+| `corrected_value` | 与对应 field 类型一致，不允许 null；保质期 value 为正整数、unit 为 DAY/MONTH/YEAR；start_mode 取值 `COUNT_FROM_NEXT_DAY` 或 `COUNT_FROM_MFG_DAY`；文本非空非纯空白 |
 | `correction_reason` | 非空且非纯空白的修正理由 |
 
-验证权限、图像归属与值后保存 Correction，新增 MANUAL 事实并一致提交新 Evidence/Decision，保留原 Observation 和修正采纳记录。业务成功不自动获得训练资格。完整 C0 保留 OCR 原文与检测框修正，但 correction.v1 未定义相应请求，须升级契约后接入。
+验证权限、图像归属与合法值后保存 Correction。系统执行**双轨纠偏状态机流转**：
+- **语义事实纠偏**（`corrected_field` 为 `mfg_date` / `exp_date` / `shelf_life` / `storage_condition`）：在会话中新增 `MANUAL` 事实写入 `Evidence.facts`，生成新版本 Evidence 与 Decision，历史证据链完整可查；
+- **计算模式纠偏**（`corrected_field == "start_mode"`）：由于起算模式属于日历推导参数而非包装视觉观测事实，**不写入 `Evidence.facts`**；系统派生并保存新的不可变 `CalculationProfile`（更新 `calculation_profile_id` 与绑定起算口径），基于原 `Evidence` 直接重算并生成新版本 `Decision`。
+
+业务纠偏即时重算不自动获得离线训练资格。完整 C0 保留 OCR 原文与检测框修正，但 correction.v1 未定义相应请求，须升级契约后接入。
 
 ### 2. 在线 Image 最小字段表
 
@@ -401,7 +416,8 @@ GET 会话视图不包含 session_token；令牌仅在创建及其合法幂等�
     "mfg_date": "2024-05-18",
     "shelf_life": {"value": 12, "unit": "MONTH"},
     "exp_date": "2025-05-18",
-    "exp_date_is_derived": true
+    "exp_date_is_derived": true,
+    "remaining_days": 365
   },
   "used_fact_ids": ["fact_example_mfg", "fact_example_life"],
   "missing_fields": [],

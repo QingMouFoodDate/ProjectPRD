@@ -15,7 +15,7 @@
     "schema_version": { "const": "correction.v1" },
     "image_id": { "type": "string", "minLength": 1 },
     "corrected_field": {
-      "enum": ["mfg_date", "exp_date", "shelf_life", "storage_condition"]
+      "enum": ["mfg_date", "exp_date", "shelf_life", "storage_condition", "start_mode"]
     },
     "corrected_value": {
       "oneOf": [{ "type": "string" }, { "$ref": "#/$defs/shelfLife" }]
@@ -54,6 +54,19 @@
             "type": "string",
             "minLength": 1,
             "pattern": "\\S"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "corrected_field": { "const": "start_mode" } },
+        "required": ["corrected_field"]
+      },
+      "then": {
+        "properties": {
+          "corrected_value": {
+            "enum": ["COUNT_FROM_NEXT_DAY", "COUNT_FROM_MFG_DAY"]
           }
         }
       }

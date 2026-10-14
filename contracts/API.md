@@ -95,7 +95,7 @@ M0 单会话仅接收单张图片：新键追加第二张返回 409，原上传�
 
 ### 4. 字段级纠偏
 
-请求遵循 `correction.v1` Schema；支持 mfg_date（生产日期）、exp_date（直接标示到期日）、shelf_life（正整数 value 与 DAY / MONTH / YEAR unit）、storage_condition（非空存储说明）四类字段。日期须为完整且日历合法的 YYYY-MM-DD；拒绝未知字段与 null 修正值。
+请求遵循 `correction.v1` Schema；支持 mfg_date（生产日期）、exp_date（直接标示到期日）、shelf_life（正整数 value 与 DAY / MONTH / YEAR unit）、storage_condition（非空存储说明）四类语义字段，以及 start_mode（起算模式纠偏：COUNT_FROM_NEXT_DAY / COUNT_FROM_MFG_DAY）。日期须为完整且日历合法的 YYYY-MM-DD；拒绝未知字段与 null 修正值。语义字段纠偏写入 Evidence.facts；start_mode 纠偏派生新 CalculationProfile 触发 Decision 重算。
 
 ```json
 {
@@ -147,6 +147,6 @@ Runtime 校验模型包、哈希、兼容性与张量，执行检测与 OCR；�
 
 旧候选的 session_decision、updated_decision、accumulated_evidences、evidence_chain、source、shelf_life_days 和 date-rules-v1 不再作为新 DTO 别名，当前绑定 Observation/Evidence/Correction v1、Decision v2 与 date-rules.v2；实施仓固定契约版本并记录升级影响。
 
-新候选统一返回 decision.v2，calculation_profile_id 由服务端保存并绑定实际证据、阈值、时区及起算依据；客户端不新增请求字段指定口径。路径仍为 /api/v1，路径编号与 DTO 版本分别管理；当前新协议定义 v2 新会话载荷。旧 decision.v1 与原规则保留用于显式历史适配和重放，读取适配协议在实现前另定，不能直接送入当前 v2 响应或同键重放成新版。固定天数临期默认候选30天；可靠直接 EXP 不因缺 MFG 阻断，起算未知不产生唯一派生值。
+新候选统一返回 decision.v2，calculation_profile_id 由服务端保存并绑定实际证据、阈值、时区及起算依据；客户端不新增请求字段指定口径。路径仍为 /api/v1，路径编号与 DTO 版本分别管理；当前新协议定义 v2 新会话载荷。旧 decision.v1 与原规则保留用于显式历史适配和重放，读取适配协议在实现前另定，不能直接送入当前 v2 响应或同键重放成新版。固定天数临期默认候选30天；可靠直接 EXP 不因缺 MFG 阻断；起算未知时按双口径包络定理区分非临界安全区保守下界推导与临界窗口阻断。
 
 冻结前核验项：OpenAPI 语法及 Schema 引用、完整响应与错误映射、幂等重试与并发、跨会话越权、凭据泄露/过期、解码限制、真实 Runtime 映射、Evidence JCS 哈希、纠偏原子更新、日期边界与历史重放、会话生命周期及实际模型版本。

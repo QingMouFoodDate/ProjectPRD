@@ -64,7 +64,7 @@
     "evidence_snapshot": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["mfg_date", "shelf_life", "exp_date", "exp_date_is_derived"],
+      "required": ["mfg_date", "shelf_life", "exp_date", "exp_date_is_derived", "remaining_days"],
       "properties": {
         "mfg_date": {
           "anyOf": [{ "$ref": "#/$defs/date" }, { "type": "null" }]
@@ -75,7 +75,11 @@
         "exp_date": {
           "anyOf": [{ "$ref": "#/$defs/date" }, { "type": "null" }]
         },
-        "exp_date_is_derived": { "type": ["boolean", "null"] }
+        "exp_date_is_derived": { "type": ["boolean", "null"] },
+        "remaining_days": {
+          "type": ["integer", "null"],
+          "description": "标示剩余自然日天数 (exp_date - observed_local_date)，exp_date 为 null 时为 null；到期当日为 0，超期为负数。"
+        }
       },
       "allOf": [
         {
@@ -84,10 +88,16 @@
             "required": ["exp_date"]
           },
           "then": {
-            "properties": { "exp_date_is_derived": { "const": null } }
+            "properties": {
+              "exp_date_is_derived": { "const": null },
+              "remaining_days": { "type": "null" }
+            }
           },
           "else": {
-            "properties": { "exp_date_is_derived": { "type": "boolean" } }
+            "properties": {
+              "exp_date_is_derived": { "type": "boolean" },
+              "remaining_days": { "type": "integer" }
+            }
           }
         },
         {
