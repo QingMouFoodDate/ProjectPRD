@@ -28,13 +28,13 @@ flowchart LR
 | :--- | :--- | :--- |
 | Observation | `observation.v1` | [schemas/observation.v1.schema.json](schemas/observation.v1.schema.json) |
 | Evidence | `evidence.v1` | [schemas/evidence.v1.schema.json](schemas/evidence.v1.schema.json) |
-| Decision | `decision.v1` | [schemas/decision.v1.schema.json](schemas/decision.v1.schema.json) |
+| Decision | `decision.v2` | [schemas/decision.v2.schema.json](schemas/decision.v2.schema.json) |
 | Correction 请求 | `correction.v1` | [schemas/correction.v1.schema.json](schemas/correction.v1.schema.json) |
-| 日期规则 | `date-rules.v1` | [日期推导规则.md](日期推导规则.md) |
+| 日期规则 | `date-rules.v2` | [日期推导规则.md](日期推导规则.md) |
 
 ### 1. 通用结构约束
 
-四份 Schema 遵循 JSON Schema Draft 2020-12，对象显式约束 `additionalProperties: false`。`required` 字段必须出现，允许 `null` 不等于允许省略：
+当前四类 DTO 的 Schema 遵循 JSON Schema Draft 2020-12，对象显式约束 `additionalProperties: false`。`required` 字段必须出现，允许 `null` 不等于允许省略：
 
 - ID 与版本标识为非空字符串；
 - 日期为真实公历 `YYYY-MM-DD`（范围 `0001-01-01` 至 `9999-12-31`），须经日历有效性校验；
@@ -61,21 +61,29 @@ flowchart LR
 
 工艺枚举：`inkjet_dot_matrix`、`inkjet`、`laser_engraving`、`emboss`、`label_thermal`、`print`。载体枚举：`plastic_bag`、`can`、`bottle`、`bottle_cap`、`box`、`tetra_pak`、`plastic_tray`。
 
-### 1. 当前采集情况
+### 1. 基准数据集分布与受控划分
 
-截至 2026-10-13，当前采集清单共 **1523 张图片，仍在补充**。文件沿用 **Master Dataset v1.0** 名称，采集批次与训练冻结版本分别管理：
+全量主基准数据集已完成全量肉眼审校与质量网关检验，通过 SHA-256 二进制排重与 pHash 感知去重，实现 1617 张规范原图受控入库，并完成 8:1:1 科学分层切分（Train 1293 / Val 162 / Test 162）：
 
-| 维度 | 当前记录 | 使用前要求 |
-| :--- | :--- | :--- |
-| **样本规模** | 1523 条清单与文件对应 | 收集量不等于标注、审核或冻结完成 |
-| **数据来源** | 网络图片 1207 张（79.3%）<br>线下实拍 316 张（20.7%） | 统一登记训练、评测、展示与再分发的许可依据 |
-| **工艺与包装** | 保留现有标签，历史别名与分类口径仍待统一 | 审核映射后再发布分层比例，不以未经统一的统计描述覆盖程度 |
-| **质量与完整性** | 清单有单张原图审阅通过标记，SHA-256 字段无重复 | 审核记录、实际内容摘要和近重复分别核验，标记不能代替原图检查 |
-| **标注与冻结** | 有 OCR 和日期记录，尚未关联完整 annotation、license、group_key 与 split | 补齐许可、标注修订和分组切分后，登记不可变 DatasetVersion |
+| 维度 | 分类 / 集合 | 样本量 | 占比 | 特征说明 |
+| :--- | :--- | :---: | :---: | :--- |
+| **数据来源** | 网络搜集与定向采图 | 1307 | 80.8% | 电商晒单、长尾工况与稀缺难例增补，覆盖多样包装与背景干扰 |
+| | 线下生活与商超实拍 | 310 | 19.2% | 超市货架、冷柜、手持等真实生活光照实拍 |
+| **受控切分** | 训练集 (`train`) | 1293 | 80.0% | 用于定位与 OCR 模型训练，含常规与难例样本 |
+| | 验证集 (`val`) | 162 | 10.0% | 用于超参寻优、早停与候选置信度阈值调优 |
+| | 测试集 (`test`) | 162 | 10.0% | 独立盲测集，严禁参与任何调优，评测泛化能力 |
+| **打码工艺** | 油墨点阵喷码 (`inkjet_dot_matrix`) | 1258 | 77.8% | 工业主流点阵字符，覆盖软包、纸箱、瓶身等多数场景 |
+| | 激光刻印打码 (`laser_engraving`) | 165 | 10.2% | 激光烧蚀剥离打码，多见于奶粉罐底、金属盖与高端包装 |
+| | 热敏与热转印标签 (`label_thermal`) | 107 | 6.6% | 商超称重标签、生鲜冷藏糕点包装标签 |
+| | 连续油墨喷码 (`inkjet`) | 61 | 3.8% | 实体线条连续喷墨打码，笔画连贯完整 |
+| | 机械钢印压纹 (`emboss`) | 22 | 1.4% | 物理凹凸压痕打码，见于药盒封口折角、软袋封边 |
+| | 工业印刷与其他 (`print`) | 4 | 0.2% | 包装制版直接预印或特殊特种标示 |
+| **辨识难度** | 简单 (`easy`) | 941 | 58.2% | 平整表面、正对拍摄、字符对比度清晰、背景干扰少 |
+| | 中等 (`medium`) | 442 | 27.3% | 轻微反光、非水平倾斜拍摄、微曲面变形、复杂印刷背景干扰 |
+| | 困难 (`hard`) | 234 | 14.5% | 金属凹底高光过曝、点阵字符稀疏残损、折痕反光、严重透视畸变 |
+| **合计** | **主基准受控全量集** | **1617** | **100.0%** | **全库 SHA-256 唯一，零断号，基于 group_key 严格防泄漏** |
 
-当前清单含 23 个字段，与候选 SampleAsset 尚未完全对齐；filename、acquisition_type、transcription 等字段须明确映射，保留原始记录，不补造缺失的许可或审核信息。本节集中维护采集进度，其他仓库引用；已批准的冻结数据只读，增补与重新审核产生新版本。
-
-进度分别登记已收集、已完整标注、已审核、已分组切分和已冻结的数量及版本。当前仅确认 1523 条采集记录；统一许可、标注修订、group_key 与 split 字段尚未关联，其他完成数量暂不填已通过。补充一份未参与训练、选模型或调阈值的新拍测试集，保留未见商品与设备的测试关系。
+当前清单记录与候选 `SampleAsset` 字段完成映射；`file_name`、`transcription`、`date_type`、`printing_tech`、`package_type`、`difficulty`、`group_key` 及 `split` 字段均已规范对齐并保留完整审计依据。已冻结数据严格只读，测试集绝对不参与任何模型调优。
 
 ## 三、Observation 候选契约
 
@@ -149,7 +157,7 @@ flowchart LR
 | `confidence` | 有限数 0..1 或 null；MANUAL 固定 null |
 | `eligible_for_decision` | boolean，由解析策略与修正规则共同决定 |
 
-每个 conflicts 项必需包含 field、fact_ids、reason；field 取四类事实字段，fact_ids 为至少一个真实 fact_id 的去重数组，reason 非空且非纯空白。直接与派生 EXP 不一致时引用真实 MFG、shelf_life 与直接 EXP，不虚构派生 Observation。
+每个 conflicts 项必需包含 field、fact_ids、reason；field 取四类事实字段，fact_ids 为至少一个真实 fact_id 的去重数组，reason 非空且非纯空白。直接与派生 EXP 在同一期限、同一有据口径下确有冲突时引用真实 MFG、shelf_life 与直接 EXP，不虚构派生 Observation；依据未知或不同期限先作为候选核验，不擅自记成已确认日期冲突。
 
 可靠性由有记录的来源、语义与版本化策略决定；阈值仍待真实数据校准。人工修正的采纳和冲突处理留痕，不默认“最后一条”覆盖历史。无类型日期串不猜为 MFG；BEST_BEFORE 的原语义保留，仅投影作标示比较。
 
@@ -166,18 +174,19 @@ flowchart LR
 
 ## 五、Decision 候选契约
 
-由 InferPlatform 依据引用的 Evidence、日期规则及服务端观察时刻生成：
+由 InferPlatform 依据完整 Evidence、版本化日期规则及服务端观察时刻生成。当前 v2 新增计算记录引用；[v1 Schema](schemas/decision.v1.schema.json)与[原规则](archive/日期推导规则.v1.md)保留，历史数据不自动改用新口径：
 
 | 必需字段 | 类型与约束 |
 | :--- | :--- |
-| `schema_version` | 固定 `decision.v1` |
+| `schema_version` | 固定 `decision.v2` |
 | `decision_id`, `session_id` | 非空字符串 |
 | `marked_status` | `WITHIN_MARKED_PERIOD` / `NEAR_EXPIRY` / `PAST_MARKED_PERIOD` / `UNDETERMINED` |
 | `review_status` | `EVIDENCE_COMPLETE` / `INFORMATION_MISSING` / `EVIDENCE_CONFLICT` / `LOW_CONFIDENCE` |
 | `observed_at` | 服务端业务观察时刻（带偏移 ISO 8601） |
 | `generated_at` | 决策生成时刻 |
 | `timezone` | 有效 IANA 时区名，默认 `Asia/Shanghai` |
-| `calculation_rule_version` | 固定 `date-rules.v1` |
+| `calculation_rule_version` | 固定 `date-rules.v2` |
+| `calculation_profile_id` | 非空，引用不可变计算记录；绑定阈值、Evidence/hash、parser_version、时区库及需要推导时的事实对、起算语义与依据 |
 | `evidence_schema_version` | 固定 `evidence.v1` |
 | `evidence_id`, `evidence_hash` | 引用不可变 Evidence 及其 JCS 哈希 |
 | `evidence_snapshot` | 日期输入与派生投影快照 |
@@ -195,13 +204,13 @@ flowchart LR
 | `exp_date` | 选定直接到期日或派生到期日，未选定为 null |
 | `exp_date_is_derived` | 直接 EXP 为 false，派生为 true；无选定 exp_date 时为 null |
 
-派生标志为 true 时必须有真实 mfg_date 和 shelf_life，used_fact_ids 引用其来源事实。必要冲突未解决时不任意选择投影，未选定值置 null；snapshot 不含完整来源和冲突，不能代替 Evidence 重放。
+派生标志为 true 时须有真实 mfg_date、shelf_life 和对应有据起算绑定，used_fact_ids 引用来源事实；起算未知则不写唯一派生值。直接 EXP 可靠时优先作期限比较；差一天或 MFG = EXP 须按语义和依据核验，同一期限同一口径仍矛盾时保留冲突。snapshot 不含完整来源和配置，不能代替 Evidence 与计算记录重放。
 
 ### 1. 二维状态语义
 
 - **标示期限状态**：
-  - `WITHIN_MARKED_PERIOD`：未超期且未触发临期；
-  - `NEAR_EXPIRY`：剩余天数 <= 30，或剩余天数 * 10 <= 总寿命天数（到期当天属此状态）；
+  - `WITHIN_MARKED_PERIOD`：必要输入可靠一致，剩余天数大于当前固定阈值；
+  - `NEAR_EXPIRY`：0 <= 剩余天数 <= 固定阈值（M0默认候选30天），到期当天属此状态；
   - `PAST_MARKED_PERIOD`：剩余天数 < 0，即到期日次日起标示超期；
   - `UNDETERMINED`：证据无效、冲突或不足。
 - **证据复核状态**：
@@ -210,7 +219,7 @@ flowchart LR
   - `EVIDENCE_CONFLICT`：存在未解决冲突或时间逻辑错误；
   - `LOW_CONFIDENCE`：必要候选置信度不足。
 
-复核优先级：EVIDENCE_CONFLICT > LOW_CONFIDENCE > INFORMATION_MISSING > EVIDENCE_COMPLETE，只针对本次必要日期事实。可靠 EXP-only 已超期或剩余 0..30 天可判定；剩余 >30 天且无可靠 MFG 时须补充比例输入，不能默认在期。非必要存储条件问题只生成提示，详见 [日期推导规则.md](日期推导规则.md)。
+复核优先级保持 EVIDENCE_CONFLICT > LOW_CONFIDENCE > INFORMATION_MISSING > EVIDENCE_COMPLETE，只针对必要日期事实。v2 的可靠 EXP-only 可独立判断超期、临期或在期，不要求 MFG；寿命比例策略从 M0 移出。直接 EXP 存在但起算依据未知时可提示复核派生依据，不能仅因此阻断日期比较；无直接 EXP 且起算未知时输出缺失。非必要存储问题只提示，详见[日期推导规则](日期推导规则.md)。
 
 ## 六、Correction 候选契约与最小实体
 
@@ -367,11 +376,11 @@ GET 会话视图不包含 session_token；令牌仅在创建及其合法幂等�
 
 ### 4. Decision 结构片段
 
-本片段同样省略 evidence_hash，整体校验应失败；完整对象须引用对应 Evidence 的实际哈希。snapshot 不能单独证明决策来源。
+本片段同样省略 evidence_hash，整体校验应失败；完整对象须引用 Evidence 的实际哈希。示例 profile 需在合成测试中建立对应不可变记录，明确次日起算和30天阈值，不代表真实系统已有配置；snapshot 不能证明来源或起算依据。
 
 ```json
 {
-  "schema_version": "decision.v1",
+  "schema_version": "decision.v2",
   "decision_id": "dec_example_001",
   "session_id": "sess_example_001",
   "marked_status": "WITHIN_MARKED_PERIOD",
@@ -379,7 +388,8 @@ GET 会话视图不包含 session_token；令牌仅在创建及其合法幂等�
   "observed_at": "2024-05-18T09:00:00+08:00",
   "generated_at": "2024-05-18T09:00:02+08:00",
   "timezone": "Asia/Shanghai",
-  "calculation_rule_version": "date-rules.v1",
+  "calculation_rule_version": "date-rules.v2",
+  "calculation_profile_id": "profile_synthetic_next_day_30d.v1",
   "evidence_schema_version": "evidence.v1",
   "evidence_id": "ev_example_001",
   "evidence_snapshot": {
@@ -397,7 +407,7 @@ GET 会话视图不包含 session_token；令牌仅在创建及其合法幂等�
 
 ## 九、冻结前的真实校验清单
 
-1. 四份 Schema 的 Draft 2020-12 自检，启用格式检查，通过 required、nullable、未知字段及类型联动的正负用例；
+1. 当前四类 DTO Schema 自检，验证 decision.v2 与计算记录引用；历史 decision.v1 独立检查，启用格式、required、nullable、未知字段及类型联动的正负用例；
 2. Runtime 验证原图映射、非有限数拦截与空检测处理；
 3. InferPlatform 验证 MODEL / MANUAL 来源、会话归属、冲突处理与版本化可靠性策略；
 4. 标准 JCS 实现验证数字、属性排序、Unicode、完整 Evidence 哈希与篡改拒绝；

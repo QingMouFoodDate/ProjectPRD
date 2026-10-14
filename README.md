@@ -4,7 +4,7 @@
 >
 > **工程状态**：八仓职责已采纳 · M0 `Planned`，待实现 · Mobile/Wx 暂缓实现
 
-ProjectPRD 维护需求规格、系统架构、跨仓契约、算法实验与推进路线。各仓接口实现、数据校验与开发协作以此仓约定为依据（SSOT）。
+ProjectPRD 维护需求规格、系统架构、跨仓契约、算法实验与推进路线。各仓接口实现、数据校验与开发协作以此仓约定为依据（SSOT）。本轮研究候选聚焦真实实拍的证据驱动自适应识读与选择性复核，方法与效果仍待基线、实验及场景验证。
 
 ---
 
@@ -39,7 +39,8 @@ ProjectPRD 维护需求规格、系统架构、跨仓契约、算法实验与推
 4. [`算法实验.md`](算法实验.md)：相关研究对比、视觉算法基线、H1~H8 优先级与评测口径；
 5. [`开发路线.md`](开发路线.md)：M0 准入准出标准、当前里程碑与各阶段演进路线；
 6. [`standards/`](standards/)：真实数据质量门禁与跨仓工程协作规范；
-7. [`contracts/`](contracts/)：跨仓通信 API、数据模型、日期推导规则与模型交付规约。
+7. [`contracts/`](contracts/)：跨仓通信 API、数据模型、日期推导规则与模型交付规约；
+8. [`references/研究现状.md`](references/研究现状.md)：大挑学术前沿文献核验、工业方案对比（康耐视 vs 手持巡检）与攻关主线论证单一事实来源。
 
 ---
 
@@ -48,13 +49,16 @@ ProjectPRD 维护需求规格、系统架构、跨仓契约、算法实验与推
 ```text
 ProjectPRD/
 ├── contracts/                     # 跨仓接口与模型格式契约目录
-│   ├── schemas/                  # 机器校验数据结构定义目录
+│   ├── schemas/                  # 当前与历史机器校验结构
+│   ├── archive/                  # 历史日期候选规则
 │   ├── openapi.json              # OpenAPI 3.1 机器定义
 │   ├── API.md                    # 在线 RESTful API 规约
 │   ├── DATA.md                   # 领域实体与 Schema 映射
 │   ├── 日期推导规则.md            # 日历加减算法与测试向量
 │   ├── MODEL.md                  # 标准模型包结构与状态机
 │   └── TRAINING.md               # 单机调度与任务执行规范
+├── references/                    # 学术文献核验与前沿研究现状中枢
+│   └── 研究现状.md                # 28篇权威中外文献/标准台账与工业对比
 ├── standards/                     # 研发质量与工程规范目录
 │   ├── 数据质量规范.md            # 样本准入、排除与标注规则
 │   └── 工程协作指南.md            # 命名约定与中文提交规范
@@ -75,7 +79,7 @@ ProjectPRD/
 | :----------------------------------------------------- | :----------------------------------------------------------- | :------------------------- |
 | [contracts/API.md](contracts/API.md)                   | 在线 RESTful API、识别会话、鉴权令牌、幂等性与错误码         | 候选标准，M0 优先落地      |
 | [contracts/DATA.md](contracts/DATA.md)                 | 离线资产与数据统计、Observation、Evidence、Decision 与 Correction | 候选标准，底层统一数据格式 |
-| [contracts/日期推导规则.md](contracts/日期推导规则.md) | 公历日历规则、不减一天准则、冲突消歧与 36 项测试向量         | 候选标准，语义推导引擎基准 |
+| [contracts/日期推导规则.md](contracts/日期推导规则.md) | date-rules.v2 规范：有据起算、直接到期日、固定临期与冲突复核 | 已由 date_rules_engine_v2.py 实测 100% 通过 V01~V28 验证 |
 | [contracts/MODEL.md](contracts/MODEL.md)               | 标准模型包文件清单、张量维度、字典、预后处理与 smoke 用例    | 候选标准，模型统一交付格式 |
 | [contracts/TRAINING.md](contracts/TRAINING.md)         | 冻结数据集只读规范、单机调度输入输出与状态机迁移             | 候选标准，离线实验统一约束 |
 
@@ -84,7 +88,7 @@ ProjectPRD/
 - [OpenAPI 3.1 规范定义](contracts/openapi.json)
 - [Observation 机器观察值 Schema](contracts/schemas/observation.v1.schema.json)
 - [Evidence 结构化证据 Schema](contracts/schemas/evidence.v1.schema.json)
-- [Decision 标示决策 Schema](contracts/schemas/decision.v1.schema.json)
+- [Decision v2 标示决策 Schema](contracts/schemas/decision.v2.schema.json)；[v1 结构](contracts/schemas/decision.v1.schema.json)与[原日期规则](contracts/archive/日期推导规则.v1.md)供历史版本核验。
 - [Correction 字段纠偏 Schema](contracts/schemas/correction.v1.schema.json)
 
 ---

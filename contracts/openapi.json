@@ -3,7 +3,7 @@
   "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
   "info": {
     "title": "轻眸识刻在线 API 候选契约",
-    "version": "api.v1-candidate",
+    "version": "api.v2-candidate",
     "description": "候选机器契约，不证明服务已实现、部署或冻结。示例仅用于结构校验，不是模型实测结果，也不构成食品安全结论。",
     "license": {
       "name": "UNLICENSED - candidate contract only",
@@ -67,7 +67,7 @@
       "post": {
         "tags": ["sessions"],
         "summary": "上传图片并更新会话结果",
-        "description": "M0 每个会话只接受一张图片；C0 多图实施后才允许追加并重新聚合。成功返回完整 observation.v1、evidence.v1 与 decision.v1，Runtime 故障不得伪造为空检测成功。",
+        "description": "M0 每个会话只接受一张图片；C0 多图实施后才允许追加并重新聚合。成功返回完整 observation.v1、evidence.v1 与 decision.v2，Runtime 故障不得伪造为空检测成功。",
         "operationId": "uploadSessionImage",
         "security": [
           { "sessionBearer": [] }
@@ -383,7 +383,7 @@
                   "image_id": { "$ref": "#/components/schemas/Id" },
                   "observation": { "$ref": "./schemas/observation.v1.schema.json" },
                   "evidence": { "$ref": "./schemas/evidence.v1.schema.json" },
-                  "decision": { "$ref": "./schemas/decision.v1.schema.json" }
+                  "decision": { "$ref": "./schemas/decision.v2.schema.json" }
                 }
               }
             }
@@ -413,7 +413,7 @@
           "images": { "type": "array", "items": { "$ref": "#/components/schemas/Image" } },
           "observations": { "type": "array", "items": { "$ref": "./schemas/observation.v1.schema.json" } },
           "evidence": { "anyOf": [{ "$ref": "./schemas/evidence.v1.schema.json" }, { "type": "null" }] },
-          "decision": { "anyOf": [{ "$ref": "./schemas/decision.v1.schema.json" }, { "type": "null" }] }
+          "decision": { "anyOf": [{ "$ref": "./schemas/decision.v2.schema.json" }, { "type": "null" }] }
         }
       },
       "Image": {
@@ -445,7 +445,7 @@
                   "decision_effect": { "type": "string", "const": "APPLIED_TO_SESSION" },
                   "training_review_status": { "type": "string", "const": "PENDING_REVIEW" },
                   "evidence": { "$ref": "./schemas/evidence.v1.schema.json" },
-                  "decision": { "$ref": "./schemas/decision.v1.schema.json" }
+                  "decision": { "$ref": "./schemas/decision.v2.schema.json" }
                 }
               }
             }

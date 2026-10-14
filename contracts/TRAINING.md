@@ -31,7 +31,7 @@
 
 DatasetVersion 候选状态为 DRAFT、FROZEN、DEPRECATED。DRAFT 按审核流程修订；来源许可、审核、标注、文件/清单一致性与组泄漏检查通过后，固化全部成员、文件哈希、标注版本与 split/group_key，置 FROZEN。修改必须派生新版本，parent_version 引用已存在父版本且血缘不可循环；DEPRECATED 保留历史与引用保护。
 
-split 统一使用 train、val、test；同商品、包装批次、采集会话、连拍与近重复簇按 `group_key` 切分，冻结前检查同源组泄漏及 train / val 非空。test 不用于调参、量化校准、阈值选择或自动策略搜索；发布评测使用独立冻结测试集。
+split 统一使用 train、val、test；划分比例统一遵循 **8:1:1**（当前 master 全量 1617 张样本划分为 Train 1293 张、Val 162 张、Test 162 张，已固化分组清单）。同商品、包装批次、采集会话、连拍与近重复簇按 `group_key` 切分，冻结前检查同源组泄漏及 train / val 非空。test 不用于调参、量化校准、阈值、候选选择/拒识模型、处理策略或提示词搜索；校准子集从训练/验证侧登记，发布评测使用独立冻结测试集。
 
 ## 三、任务级输入输出
 
@@ -96,7 +96,7 @@ stateDiagram-v2
 
 ## 五、评测、登记与发布
 
-ModelTrain 产出真实实验与评测记录；TrainPlatform 登记并比对。结论关联数据版本、split/分层、脚本/配置、模型、设备、精度、输入尺寸、冷/热启动、并发、计时边界及失败统计；字符、字段、业务状态、前向与端到端指标分别定义，研究口径见 [算法实验.md](../算法实验.md)。
+ModelTrain 产出真实实验与评测记录；TrainPlatform 登记并比对。结论关联数据版本、split/分层、脚本/配置、模型、设备、精度、输入尺寸、冷/热启动、并发、计时边界及失败统计；字符、字段、类型/来源、业务状态、风险—覆盖率、前向与端到端成本分别定义，研究口径见 [算法实验.md](../算法实验.md)。候选选择和处理策略的日志、配置及负结果关联实验记录，不以成功训练代表研究贡献；未见商品/设备测试保持独立。
 
 ModelTrain 仅交付 candidate 产物；TrainPlatform 治理 register/validate/release；InferPlatform 控制 activate/rollback，门禁遵循 [MODEL.md](MODEL.md)。register 以不可变 model_version 与制品哈希幂等登记：同版同包复用，同版异包拒绝；血缘一次登记，审批与状态追加。M0 可由单机工具与审核人保存门禁记录。
 

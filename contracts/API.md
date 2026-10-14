@@ -1,6 +1,6 @@
 # 轻眸识刻在线 API 候选契约
 
-> **状态**：`api.v1-candidate`，由 InferPlatform 实现后提供；当前 M0 待实现，候选契约不代表服务或联调已完成。
+> **状态**：`api.v2-candidate`，由 InferPlatform 实现后提供；当前 M0 待实现，候选契约不代表服务或联调已完成。
 > **事实源**：[DATA.md](DATA.md)、[日期推导规则.md](日期推导规则.md)、[MODEL.md](MODEL.md)、[系统架构.md](../系统架构.md)。
 > **机器定义**：[openapi.json](openapi.json)，OpenAPI 3.1（引用四份候选 JSON Schema）。
 
@@ -14,7 +14,7 @@
 | 时间格式 | 带明确时区偏移的 RFC 3339；日期计算使用服务端 observed_at，不以客户端或 EXIF 时钟替代 |
 | 成功响应 | HTTP 200，响应结构 `{code: 200, message, data, request_id}` |
 | 失败响应 | HTTP 4xx/5xx，响应结构 `{code, message, data: null, request_id}`；不回传内部敏感信息 |
-| 数据传输对象 | 包含完整的 observation.v1 / evidence.v1 / decision.v1 安全 DTO |
+| 数据传输对象 | 包含完整的 observation.v1 / evidence.v1 / decision.v2 安全 DTO |
 | 架构分层 | 业务层负责编排、鉴权、Evidence 和 Decision；内部 Runtime 仅生成 Observation |
 | 缓存控制 | 创建响应及其重放、GET 会话与受控图片资源使用 `Cache-Control: no-store` |
 
@@ -145,6 +145,8 @@ Runtime 校验模型包、哈希、兼容性与张量，执行检测与 OCR；�
 
 ## 七、迁移与冻结检查
 
-旧候选的 session_decision、updated_decision、accumulated_evidences、evidence_chain、source、shelf_life_days 和 date-rules-v1 不再作为新 DTO 别名，统一绑定四份版本化 Schema 与 date-rules.v1；实施仓固定契约版本并记录升级影响。
+旧候选的 session_decision、updated_decision、accumulated_evidences、evidence_chain、source、shelf_life_days 和 date-rules-v1 不再作为新 DTO 别名，当前绑定 Observation/Evidence/Correction v1、Decision v2 与 date-rules.v2；实施仓固定契约版本并记录升级影响。
+
+新候选统一返回 decision.v2，calculation_profile_id 由服务端保存并绑定实际证据、阈值、时区及起算依据；客户端不新增请求字段指定口径。路径仍为 /api/v1，路径编号与 DTO 版本分别管理；当前新协议定义 v2 新会话载荷。旧 decision.v1 与原规则保留用于显式历史适配和重放，读取适配协议在实现前另定，不能直接送入当前 v2 响应或同键重放成新版。固定天数临期默认候选30天；可靠直接 EXP 不因缺 MFG 阻断，起算未知不产生唯一派生值。
 
 冻结前核验项：OpenAPI 语法及 Schema 引用、完整响应与错误映射、幂等重试与并发、跨会话越权、凭据泄露/过期、解码限制、真实 Runtime 映射、Evidence JCS 哈希、纠偏原子更新、日期边界与历史重放、会话生命周期及实际模型版本。
