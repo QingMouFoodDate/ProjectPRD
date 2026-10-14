@@ -13,7 +13,7 @@
 | `DatasetVersion` | dataset_version_id、parent_version、status、manifest_sha256、created_at、frozen_at、change_reason | 冻结后样本、文件、标注与切分均不可改 |
 | `DatasetVersionItem` | dataset_version_id、sample_id、annotation_version、split、group_key | 明确标注修订版本，同源组不跨 split |
 | `LabelTask` | label_task_id、sample_ids、annotation_types、assignee_ref、status、created_at | 标注范围、任务授权与返工可追溯 |
-| `Annotation` | annotation_id、sample_id、annotation_version、annotator_ref、created_at、content_ref | 修订新增不覆盖；包含所需框、原文转录、日期语义与质量 |
+| `Annotation` | annotation_id、sample_id、annotation_version、annotation_status (AUTO_HIGH_PRECISION / MANUAL_EMPTY)、annotator_ref、created_at、content_ref | 修订新增不覆盖；记录算法自锚定或人工补框状态；包含单行框、原文转录、日期语义与质量 |
 | `LabelReview` | review_id、annotation_id、annotation_version、reviewer_ref、reviewed_at、result、reasons | result 为 APPROVED/REJECTED，未通过禁用 |
 | `TrainJob` | train_job_id、mode、attempt、dataset_version_id、train_config_hash、code_commit、environment_ref、runtime_version、parent_bundle_id、output_ref、status、created_at | 调度事实由 Train 管理；完整执行输入见第三章，算法不反向改状态 |
 | `EvalRecord` | eval_record_id、model_version、dataset_version_id、split、evaluation_config_hash、code_commit、environment_ref、metrics、created_at | 记录评测口径、分层与环境，不填示例为实测 |

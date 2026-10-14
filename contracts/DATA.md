@@ -55,11 +55,16 @@ flowchart LR
 | `annotation` | 标注版本、状态、审核人与时间；保留 bbox、原始文字及 MFG / EXP 语义 |
 | `text_raw`, `date_type`, `standard_date` | 肉眼可见文字、标示类型与审核后的标准日期 |
 | `shelf_life_raw`, `shelf_life` | 包装原文及 `{value: 正整数, unit: DAY / MONTH / YEAR}` 或 null |
-| `printing_tech`, `package_type`, `difficulty` | 印刷工艺、载体形态与难度分层 |
+| `printing_tech`, `package_type`, `difficulty` | 印刷工艺、载体形态与静态物理难度分层 (`easy`, `medium`, `hard`) |
+| `annotation_status` | 动态预标注工程状态：`AUTO_HIGH_PRECISION` (不留空，算法亚像素自锚定) / `MANUAL_EMPTY` (留空，纯净留空待组员 R 键手拉) |
 | `split`, `group_key` | 划分及同源分组键；同 group_key 不得跨训练、验证、测试集泄漏 |
 | `review`, `is_benchmark` | 审核结论与依据；审核通过后允许 `is_benchmark: true` |
 
-工艺枚举：`inkjet_dot_matrix`、`inkjet`、`laser_engraving`、`emboss`、`label_thermal`、`print`。载体枚举：`plastic_bag`、`can`、`bottle`、`bottle_cap`、`box`、`tetra_pak`、`plastic_tray`。
+工艺枚举：`inkjet_dot_matrix`、`inkjet`、`laser_engraving`、`emboss`、`label_thermal`、`print`。载体枚举：`plastic_bag`、`can`、`bottle`、`bottle_cap`、`box`、`tetra_pak`、`plastic_tray`。  
+**双轨难度系统说明**：
+- `difficulty`（静态物理工艺难度）：由包装材质与工艺特性决定（无墨钢印、金属弧形反光等为 `hard`），为学术消融与基准评测不可变属性；
+- `annotation_status`（动态标注工程状态）：由算法在当前样本上的实测亚像素贴合度决定。检出高精贴合则赋予 `AUTO_HIGH_PRECISION`，漏检或极弱对比则赋予 `MANUAL_EMPTY` 纯净留空，杜绝虚假盲框。
+
 
 ### 1. 基准数据集分布与受控划分
 
